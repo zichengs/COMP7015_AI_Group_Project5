@@ -1,0 +1,63 @@
+# Target Python version (adjust to your project's minimum)
+target-version = "py312"
+
+line-length = 88
+indent-width = 4
+
+# Exclude common directories
+extend-exclude = [
+    ".venv",
+    "venv",
+    "build",
+    "dist",
+    "migrations",
+    "node_modules",
+]
+
+[lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # Pyflakes
+    "I",    # isort
+    "B",    # flake8-bugbear
+    "C4",   # flake8-comprehensions
+    "UP",   # pyupgrade
+    "SIM",  # flake8-simplify
+    "N",    # pep8-naming
+    "RUF",  # Ruff-specific rules
+    "PL",   # Pylint
+    "PT",   # flake8-pytest-style
+    "S",    # flake8-bandit (security)
+    "T20",  # flake8-print
+]
+
+ignore = [
+    "T201",
+    "E501",     # line too long (formatter handles this)
+    "PLR0913",  # too many arguments
+    "PLR2004",  # magic value used in comparison
+    "S101",     # use of assert (fine in tests)
+]
+
+# Allow autofix for all enabled rules
+fixable = ["ALL"]
+unfixable = []
+
+[lint.per-file-ignores]
+"tests/**/*.py" = ["S101", "S105", "S106", "PLR2004", "T20"]
+"__init__.py" = ["F401"]   # unused imports are OK in package inits
+"scripts/**/*.py" = ["T20"]
+
+[lint.isort]
+combine-as-imports = true
+
+[lint.pydocstyle]
+convention = "google"
+
+[format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "auto"
+skip-magic-trailing-comma = false
+docstring-code-format = true

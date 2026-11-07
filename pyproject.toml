@@ -1,0 +1,19 @@
+[project]
+name = "comp7015-ai-group-project5"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "matplotlib>=3.11.2",
+    "pandas>=3.1.1",
+    "scikit-learn>=1.9.1",
+    "torch>=2.15.0",
+    "torchvision>=0.29.2",
+]
+
+[dependency-groups]
+dev = [
+    "jupyter>=1.1.1",
+    "nbdime>=4.0.4",
+]
