@@ -1,0 +1,53 @@
+{
+  "data_root": "./PlantVillage-Dataset",
+  "cache_dir": "./cache",
+  "out_dir": "./outputs",
+  "classes": [
+    "Tomato___healthy",
+    "Tomato___Bacterial_spot",
+    "Tomato___Early_blight",
+    "Tomato___Late_blight"
+  ],
+  "train_series": {
+    "Tomato___healthy": "rs_hl",
+    "Tomato___Bacterial_spot": "gcrec_bact.sp",
+    "Tomato___Early_blight": "rs_erly.b",
+    "Tomato___Late_blight": "rs_late.b"
+  },
+  "field_root": "./PlantDoc-Dataset",
+  "field_photos": {
+    "url": "https://github.com/pratikkayal/PlantDoc-Dataset",
+    "folders": {
+      "Tomato___healthy": "Tomato leaf",
+      "Tomato___Bacterial_spot": "Tomato leaf bacterial spot",
+      "Tomato___Early_blight": "Tomato Early blight leaf",
+      "Tomato___Late_blight": "Tomato leaf late blight"
+    }
+  },
+  "min_series_photos": 20,
+  "img_size": 224,
+  "split_seed": 42,
+  "split_fractions": [
+    0.7,
+    0.15
+  ],
+  "dup_merge_bits": 10,
+  "dup_audit_bits": 20,
+  "seeds": [
+    42,
+    43,
+    44
+  ],
+  "n_bootstrap": 1000,
+  "epochs": {
+    "cnn": 50,
+    "resnet18": 16,
+    "vit_b_16": 12
+  },
+  "vit_trainable_blocks": 4,
+  "countermeasure": {
+    "swap_prob": 0.5,
+    "clean_tolerance": 0.005
+  },
+  "num_workers": 0
+}
