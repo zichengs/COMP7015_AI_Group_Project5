@@ -1,9 +1,13 @@
-"""Experiment configurations of Sections 9 and 14 and the selected final models."""
+"""Experiment configurations (Sections 9, 10, 15 and 18) and the selected final models."""
 
 import json
+import os
 
 from .config import CFG, out_path
 
+# ----------------------------------------------------------------------------
+# Section 9: custom CNN and ResNet18
+# ----------------------------------------------------------------------------
 BASE_CNN = {
     "arch": "se_cnn",
     "lr": 1e-3,
@@ -60,30 +64,59 @@ resnet_configs = {
     "ResNet18 weight decay 1e-2": {**BASE_RESNET, "weight_decay": 1e-2},
 }
 
+# ----------------------------------------------------------------------------
+# Section 10: ViT-B/16 fine-tuning strategies (Zhouyang's protocol)
+# 3 epochs train only the new head (lr 1e-3); then the head continues at 1e-4 and the unfrozen
+# backbone parameters train at 1e-5. AdamW (weight decay 0.01), constant learning rate, batch 16,
+# no class weights. The strategies differ only in which parameters are unfrozen after epoch 3.
+# ----------------------------------------------------------------------------
+BASE_VIT = {
+    "arch": "vit_b_16",
+    "finetune": "partial",
+    "trainable_blocks": 2,
+    "lr": 1e-5,  # unfrozen backbone parameters (after the head epochs)
+    "finetune_head_lr": 1e-4,  # classifier head after the head epochs
+    "head_lr": 1e-3,  # classifier head during the head epochs
+    "head_epochs": 3,
+    "epochs": CFG["epochs"]["vit_b_16"],
+    "batch_size": 16,
+    "weight_decay": 0.01,
+    "scheduler": "constant",
+    "class_weights": False,
+    "augment": True,
+    "dropout": 0.0,
+}
 vit_configs = {
-    "ViT-B/16 two-stage + cosine": {
-        "arch": "vit_b_16",
-        "lr": 5e-5,
-        "batch_size": 32,
-        "dropout": 0.0,
-        "augment": True,
-        "class_weights": True,
-        "scheduler": "cosine",
-        "weight_decay": 0.05,
-        "epochs": CFG["epochs"]["vit_b_16"],
-        "head_epochs": 1,
-        "head_lr": 1e-3,
-    },
+    "ViT-B/16 head only": {**BASE_VIT, "finetune": "head"},
+    "ViT-B/16 partial (last 2 blocks)": BASE_VIT,
+    "ViT-B/16 full fine-tuning": {**BASE_VIT, "finetune": "full"},
+    "ViT-B/16 partial, no augmentation": {**BASE_VIT, "augment": False},
 }
 ALL_CONFIGS = {**cnn_configs, **resnet_configs, **vit_configs}
 TUNING_SEED = 42
 
-# Section 14: every selected CNN / ResNet18 is retrained with random backgrounds (countermeasure)
-# and with class-matched backgrounds (control). The run name is '<base> + <suffix>'.
-COUNTERMEASURES = {
-    "random backgrounds": {},
-    "class-matched backgrounds": {"class_matched_background": True},
+# ----------------------------------------------------------------------------
+# Derived runs: '<selected model> + <suffix>' = the selected configuration with a change
+#   Section 15: the ViT retrained on another input version (trained and validated on that version)
+#   Section 18: CNN / ResNet18 retrained with random backgrounds (countermeasure) or
+#               class-matched backgrounds (control)
+# ----------------------------------------------------------------------------
+INPUT_TRAINING = {
+    "grayscale training": {"input": "grayscale"},
+    "background-removed training": {"input": "segmented"},
 }
+COUNTERMEASURES = {
+    "random backgrounds": {"background_swap": CFG["countermeasure"]["swap_prob"]},
+    "class-matched backgrounds": {
+        "background_swap": CFG["countermeasure"]["swap_prob"],
+        "class_matched_background": True,
+    },
+}
+DERIVED = {**INPUT_TRAINING, **COUNTERMEASURES}
+
+
+def input_training_names(base):
+    return [f"{base} + {suffix}" for suffix in INPUT_TRAINING]
 
 
 def countermeasure_names(base):
@@ -91,32 +124,35 @@ def countermeasure_names(base):
 
 
 def config_of(name):
-    # Configuration of a run name (tuning runs, final models and countermeasure runs).
-    for suffix, extra in COUNTERMEASURES.items():
+    # Configuration of a run name (tuning runs, final models and derived runs).
+    for suffix, change in DERIVED.items():
         base = name.removesuffix(f" + {suffix}")
         if base != name:
-            swap = {
-                **ALL_CONFIGS[base],
-                "background_swap": CFG["countermeasure"]["swap_prob"],
-            }
-            return {**swap, **extra}
+            return {**ALL_CONFIGS[base], **change}
     return ALL_CONFIGS[name]
 
 
+# ----------------------------------------------------------------------------
+# Selected models: CNN and ResNet18 in notebook 02, ViT in notebook 03
+# ----------------------------------------------------------------------------
 FINAL_MODELS_FILE = out_path("final_models.json")
 
 
-def save_final_models(best_cnn, best_resnet, best_vit):
+def save_selected(family, name):
+    # Record the model selected on the validation set for a family ('cnn', 'resnet18' or 'vit_b_16').
+    selected = {}
+    if os.path.exists(FINAL_MODELS_FILE):
+        with open(FINAL_MODELS_FILE) as f:
+            selected = json.load(f)
+    selected[family] = name
     with open(FINAL_MODELS_FILE, "w") as f:
-        json.dump(
-            {"cnn": best_cnn, "resnet18": best_resnet, "vit_b_16": best_vit},
-            f,
-            indent=2,
-        )
+        json.dump(selected, f, indent=2)
 
 
 def load_final_models():
-    # The models selected on the validation set in notebook 02 -> (BEST_CNN, BEST_RESNET, BEST_VIT).
+    # The selected models -> (BEST_CNN, BEST_RESNET, BEST_VIT).
     with open(FINAL_MODELS_FILE) as f:
-        final = json.load(f)
-    return final["cnn"], final["resnet18"], final["vit_b_16"]
+        selected = json.load(f)
+    missing = {"cnn", "resnet18", "vit_b_16"} - set(selected)
+    assert not missing, f"run notebooks 02 and 03 first (missing: {sorted(missing)})"
+    return selected["cnn"], selected["resnet18"], selected["vit_b_16"]

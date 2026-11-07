@@ -1,6 +1,5 @@
-"""Leaf masks and backgrounds: robustness variants (13), same-leaf background tests (13.2), countermeasure (14)."""
+"""Leaf masks and backgrounds: test variants (14), same-leaf background tests (16), countermeasure (18)."""
 
-import os
 import random
 from dataclasses import dataclass, field
 
@@ -10,7 +9,7 @@ import torch.nn.functional as F  # noqa: N812
 from scipy.ndimage import binary_closing, binary_fill_holes
 from torchvision.transforms import v2
 
-from .data import CachedDataset, build_cache, segmented_path
+from .data import CachedDataset, to_grayscale
 
 
 def leaf_masks(segmented, threshold=10):
@@ -70,16 +69,15 @@ def stripes(n, h, w, seed=1):
 
 
 # ----------------------------------------------------------------------------
-# Section 13: the same test leaves under several conditions
+# Section 14: the same test leaves under several conditions
 # ----------------------------------------------------------------------------
 @dataclass
 class TestVariants:
     # Test photos that have a segmented version, under every test condition (all aligned).
     variants: dict  # condition -> uint8 images
     y: np.ndarray  # labels
-    groups: np.ndarray  # leaf groups (for the bootstrap)
     has_seg: np.ndarray  # which test photos (of data.test_idx) are used
-    background_tests: dict = field(default_factory=dict)  # Section 13.2
+    background_tests: dict = field(default_factory=dict)  # Section 16
     donor_class: dict = field(default_factory=dict)  # class of the background photo
     masks: torch.Tensor = None  # leaf masks (N, H, W)
     keep: torch.Tensor = (
@@ -97,39 +95,32 @@ class TestVariants:
 
 
 def make_test_variants(data, verbose=True):
-    # Section 13: original, background removed, grayscale, darker, blur and noise versions of the test leaves.
-    seg_paths = [segmented_path(p) for p in data.df.loc[data.test_idx, "path"]]
-    has_seg = np.array([os.path.exists(p) for p in seg_paths])
+    # Section 14: original, background removed, grayscale, darker, blur and noise versions of the test leaves.
+    seg_images, exists = data.segmented
+    has_seg = exists[data.test_idx]
     if verbose:
         print(
             f"Test images with a segmented version: {has_seg.sum()} / {len(data.test_idx)}"
         )
-    seg_images = build_cache(
-        [p for p, h in zip(seg_paths, has_seg, strict=True) if h], "segmented_test"
-    )
-    orig = data.images[data.test_idx[has_seg]]
+    used = data.test_idx[has_seg]
+    orig = data.images[used]
 
     gen = torch.Generator().manual_seed(0)
     variants = {
         "original": orig,
-        "background removed": seg_images,
-        "grayscale": v2.functional.rgb_to_grayscale(orig, num_output_channels=3),
+        "background removed": seg_images[used],
+        "grayscale": to_grayscale(orig),
         "darker (x0.6)": (orig.float() * 0.6).round().to(torch.uint8),
         "blur (sigma=2)": v2.functional.gaussian_blur(orig, kernel_size=13, sigma=2.0),
         "noise (sigma=20)": (orig.float() + 20 * torch.randn(orig.shape, generator=gen))
         .clamp(0, 255)
         .to(torch.uint8),
     }
-    return TestVariants(
-        variants=variants,
-        y=data.y_test[has_seg],
-        groups=data.test_groups[has_seg],
-        has_seg=has_seg,
-    )
+    return TestVariants(variants=variants, y=data.y_test[has_seg], has_seg=has_seg)
 
 
 def add_background_tests(tv, verbose=True):
-    # Section 13.2: the leaf of every test photo on a background tile of a photo of the same / another class.
+    # Section 16: the leaf of every test photo on a background tile of a photo of the same / another class.
     tv.masks = leaf_masks(tv.variants["background removed"])
     has_leaf = tv.masks.flatten(1).any(1)
     tv.keep = (
@@ -180,21 +171,15 @@ def add_background_tests(tv, verbose=True):
 
 
 # ----------------------------------------------------------------------------
-# Section 14: training with random backgrounds
+# Section 18: training with random backgrounds
 # ----------------------------------------------------------------------------
 def training_masks(data):
     # Leaf masks of all photos (aligned with data.images) and which of them can be used for the swap.
-    seg_paths_all = [segmented_path(p) for p in data.df["path"]]
-    has_segmented = np.array([os.path.exists(p) for p in seg_paths_all])
-    print(
-        f"{(~has_segmented).sum()} of {len(has_segmented)} photos have no segmented version"
-    )
-    # photos without a segmented version get an empty mask and stay unchanged
-    seg_all = torch.zeros_like(data.images)
-    seg_all[torch.from_numpy(has_segmented)] = build_cache(
-        [p for p, h in zip(seg_paths_all, has_segmented, strict=True) if h], "segmented"
-    )
-    masks = leaf_masks(seg_all)  # (N, H, W) bool
+    seg_all, exists = data.segmented
+    print(f"{(~exists).sum()} of {len(exists)} photos have no segmented version")
+    masks = leaf_masks(
+        seg_all
+    )  # (N, H, W) bool; photos without a segmented version: empty mask
     swap_ok = trusted(masks)
     print(
         f"Leaf masks cover {masks.float().mean():.0%} of the image on average | "

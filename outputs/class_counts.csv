@@ -1,0 +1,6 @@
+class_name,train,val,test,All,leaf ids
+Tomato___healthy,699,152,148,999,250
+Tomato___Early_blight,699,152,148,999,250
+Tomato___Leaf_Mold,668,144,140,952,238
+Tomato___Spider_mites Two-spotted_spider_mite,1172,252,252,1676,419
+All,3238,700,688,4626,1157

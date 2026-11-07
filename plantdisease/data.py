@@ -1,4 +1,4 @@
-"""Data protocol: download, leaf grouping, image cache, near-duplicates, split, loaders (Sections 2-6)."""
+"""Data protocol: download, leaf grouping, image cache, split, loaders (Sections 2-6)."""
 
 import hashlib
 import json
@@ -13,7 +13,6 @@ from functools import cached_property
 import numpy as np
 import pandas as pd
 import torch
-import torch.nn.functional as F  # noqa: N812
 from PIL import Image
 from torch import nn
 from torch.utils.data import DataLoader, Dataset
@@ -29,7 +28,7 @@ IMAGE_SUFFIXES = (".jpg", ".jpeg", ".png")
 # Section 2: download
 # ----------------------------------------------------------------------------
 def sparse_checkout(url, root, folders):
-    # Clone only `folders` of a git repository (sparse checkout); returns True if all folders exist afterwards.
+    # Clone only `folders` of a git repository (sparse checkout); returns the folders that exist afterwards.
     git = shutil.which("git")
     if not os.path.exists(root):
         subprocess.run(  # noqa: S603
@@ -38,7 +37,7 @@ def sparse_checkout(url, root, folders):
         )
     if not all(os.path.isdir(os.path.join(root, f)) for f in folders):
         subprocess.run([git, "sparse-checkout", "set", *folders], cwd=root, check=False)  # noqa: S603
-    return all(os.path.isdir(os.path.join(root, f)) for f in folders)
+    return [f for f in folders if os.path.isdir(os.path.join(root, f))]
 
 
 def download_plantvillage():
@@ -70,9 +69,8 @@ def get_leaf_id(leaf_map, class_name, key):
         if entry.split(":::")[0] == class_name:
             return entry, "leaf map"
     match = SERIES_PATTERN.match(key)
-    if (
-        match and int(match.group(2)) < 1000
-    ):  # numbers >= 1000 are photo counters, not leaf numbers
+    # numbers >= 1000 are photo counters, not leaf numbers
+    if match and int(match.group(2)) < 1000:
         return f"{class_name}:::{match.group(1)} leaf {match.group(2)}", "file name"
     return None, "excluded: no leaf information"
 
@@ -113,18 +111,15 @@ def load_records():
         drop=True
     )
     assert (df["source"] == "leaf map").all(), "training series need official leaf ids"
-    # every other series of these classes is only used as the series test (Section 15)
+    # every other series of these classes is only used as the series test (Section 19.1)
     other_df = all_df[~all_df["training_series"]]
     series_size = other_df.groupby(["class_name", "series"])["path"].transform("size")
     other_df = other_df[series_size >= CFG["min_series_photos"]].reset_index(drop=True)
-    single = pd.Series("single " + other_df.index.astype(str), index=other_df.index)
-    # photos without leaf information become a group of their own
-    other_df["group"] = other_df["leaf_id"].fillna(single)
     return leaf_map, all_df, df, other_df
 
 
 # ----------------------------------------------------------------------------
-# Section 4: image cache, near-duplicates, background brightness
+# Section 4: image cache and background brightness
 # ----------------------------------------------------------------------------
 def load_resized(path, size=CFG["img_size"]):
     img = Image.open(path).convert("RGB").resize((size, size), Image.BILINEAR)
@@ -154,42 +149,6 @@ def chunked(fn, images, chunk=512):
     )
 
 
-def dhash_bits(gray, n=16):
-    # 256-bit difference hash: is each pixel brighter than its right neighbour (on a 17x16 grayscale thumbnail)?
-    small = F.interpolate(gray, size=(n, n + 1), mode="area")[:, 0]
-    return (small[:, :, 1:] > small[:, :, :-1]).flatten(1).float()
-
-
-def hamming_pairs(bits, max_bits):
-    # All index pairs (i < j) whose hashes differ in at most `max_bits` bits.
-    dist = bits @ (1 - bits).T + (1 - bits) @ bits.T
-    i, j = torch.where(torch.triu(dist <= max_bits, diagonal=1))
-    return list(zip(i.tolist(), j.tolist(), strict=True))
-
-
-def merge_near_duplicates(df, hashes):
-    # Union-find: merge the leaf groups of near-duplicate images (within the same class).
-    # Adds df["group"] and returns the number of merges.
-    parent = {g: g for g in df["leaf_id"]}
-
-    def find(g):
-        while parent[g] != g:
-            parent[g] = parent[parent[g]]
-            g = parent[g]
-        return g
-
-    merges = 0
-    for c in range(len(CLASSES)):
-        idx = np.where(df["label"] == c)[0]
-        for i, j in hamming_pairs(hashes[idx], CFG["dup_merge_bits"]):
-            a, b = find(df.at[idx[i], "leaf_id"]), find(df.at[idx[j], "leaf_id"])
-            if a != b:
-                parent[a] = b
-                merges += 1
-    df["group"] = df["leaf_id"].map(find)
-    return merges
-
-
 def border_brightness(gray, b=12):
     # Mean gray level of a 12-pixel border around each image.
     g = gray[:, 0]
@@ -207,36 +166,24 @@ def border_brightness(gray, b=12):
 # ----------------------------------------------------------------------------
 # Section 5: leaf-group split and leakage audit
 # ----------------------------------------------------------------------------
-def make_split(df, hashes):
-    # Split the leaf groups of every class 70/15/15 and audit the result.
-    # Adds df["split"]; returns (train_idx, val_idx, test_idx, near-duplicate pairs across splits).
+def make_split(df):
+    # Split the official leaf ids of every class 70/15/15 and audit the result.
+    # Adds df["split"]; returns (train_idx, val_idx, test_idx).
     rng = np.random.default_rng(CFG["split_seed"])
     train_frac, val_frac = CFG["split_fractions"]
-    split_of_group = {}
+    split_of_leaf = {}
     for c in range(len(CLASSES)):
-        groups = rng.permutation(sorted(df.loc[df.label == c, "group"].unique()))
-        n_train, n_val = round(train_frac * len(groups)), round(val_frac * len(groups))
-        for i, g in enumerate(groups):
-            split_of_group[g] = (
+        leaves = rng.permutation(sorted(df.loc[df.label == c, "leaf_id"].unique()))
+        n_train, n_val = round(train_frac * len(leaves)), round(val_frac * len(leaves))
+        for i, leaf in enumerate(leaves):
+            split_of_leaf[leaf] = (
                 "train" if i < n_train else "val" if i < n_train + n_val else "test"
             )
-    df["split"] = df["group"].map(split_of_group)
+    df["split"] = df["leaf_id"].map(split_of_leaf)
 
-    # Audit 1: every group and every official leaf id lies in exactly one split
-    assert (df.groupby("group")["split"].nunique() == 1).all()
+    # Audit: every official leaf id (all photos of one leaf) lies in exactly one split
     assert (df.groupby("leaf_id")["split"].nunique() == 1).all()
-    # Audit 2: near-duplicate pairs (looser threshold) that cross splits
-    cross = 0
-    for c in range(len(CLASSES)):
-        idx = np.where(df.label == c)[0]
-        cross += sum(
-            df.at[idx[i], "split"] != df.at[idx[j], "split"]
-            for i, j in hamming_pairs(hashes[idx], CFG["dup_audit_bits"])
-        )
-    train_idx, val_idx, test_idx = (
-        np.where(df.split == s)[0] for s in ["train", "val", "test"]
-    )
-    return train_idx, val_idx, test_idx, cross
+    return tuple(np.where(df.split == s)[0] for s in ["train", "val", "test"])
 
 
 def data_fingerprint(df, train_idx):
@@ -253,14 +200,30 @@ def data_fingerprint(df, train_idx):
 
 def segmented_path(path):
     # Segmented counterpart of a photo ('<name>_final_masked.jpg').
+    # A few segmented files lack the UUID prefix ('Com.G_SpM_FL 1378_final_masked.jpg'):
+    # then the original photo name after '___' is used.
     class_name, file_name = path.split(os.sep)[-2:]
-    return os.path.join(
-        DATA_ROOT,
-        "raw",
-        "segmented",
-        class_name,
-        os.path.splitext(file_name)[0] + "_final_masked.jpg",
-    )
+    folder = os.path.join(DATA_ROOT, "raw", "segmented", class_name)
+    stem = os.path.splitext(file_name)[0]
+    exact = os.path.join(folder, stem + "_final_masked.jpg")
+    if os.path.exists(exact):
+        return exact
+    return os.path.join(folder, stem.split("___")[-1] + "_final_masked.jpg")
+
+
+def load_segmented(paths, name):
+    # Segmented versions of `paths` (aligned; black where no segmented photo exists) and which exist.
+    seg_paths = [segmented_path(p) for p in paths]
+    exists = np.array([os.path.exists(p) for p in seg_paths])
+    found = build_cache([p for p, e in zip(seg_paths, exists, strict=True) if e], name)
+    images = torch.zeros(len(seg_paths), *found.shape[1:], dtype=torch.uint8)
+    images[torch.from_numpy(exists)] = found
+    return images, exists
+
+
+def to_grayscale(images):
+    # Grayscale version with three identical channels, so that the same (pre-trained) networks apply.
+    return v2.functional.rgb_to_grayscale(images, num_output_channels=3)
 
 
 # ----------------------------------------------------------------------------
@@ -337,12 +300,12 @@ def class_weights(df, train_idx):
 
 
 # ----------------------------------------------------------------------------
-# Everything above in one call (used by notebooks 02-05)
+# Everything above in one call (used by notebooks 02-06)
 # ----------------------------------------------------------------------------
 @dataclass
 class Data:
-    df: pd.DataFrame  # training series: one row per photo, with group and split
-    other_df: pd.DataFrame  # left-out series (Section 15)
+    df: pd.DataFrame  # training series: one row per photo, with leaf id and split
+    other_df: pd.DataFrame  # left-out series (Section 19.1)
     images: torch.Tensor  # cached uint8 images (N, 3, H, W), aligned with df
     labels: torch.Tensor
     train_idx: np.ndarray
@@ -358,27 +321,37 @@ class Data:
     def y_test(self):
         return self.labels[self.test_idx].numpy()
 
-    @property
-    def test_groups(self):
-        # leaf group of every test image
-        return self.df.iloc[self.test_idx]["group"].to_numpy()
+    @cached_property
+    def segmented(self):
+        # Background-removed version of every photo -> (images, exists), aligned with self.images.
+        return load_segmented(self.df["path"], "segmented")
 
     @cached_property
     def swap_masks(self):
-        # Leaf masks of all photos for the background swap of Section 14 -> (masks, usable).
+        # Leaf masks of all photos for the background swap of Section 18 -> (masks, usable).
         # imported here: backgrounds imports this module
         from .backgrounds import training_masks  # noqa: PLC0415
 
         return training_masks(self)
+
+    @cached_property
+    def grayscale(self):
+        return to_grayscale(self.images)
+
+    def input_images(self, variant):
+        # The photos in one input version: 'color', 'grayscale' or 'segmented' (background removed).
+        return {
+            "color": lambda: self.images,
+            "grayscale": lambda: self.grayscale,
+            "segmented": lambda: self.segmented[0],
+        }[variant]()
 
 
 def prepare():
     # Rebuild the deterministic data protocol of notebook 01 from the image cache.
     _, _, df, other_df = load_records()
     images = build_cache(df["path"], "color")
-    hashes = chunked(dhash_bits, images)
-    merge_near_duplicates(df, hashes)
-    train_idx, val_idx, test_idx, _ = make_split(df, hashes)
+    train_idx, val_idx, test_idx = make_split(df)
     return Data(
         df=df,
         other_df=other_df,

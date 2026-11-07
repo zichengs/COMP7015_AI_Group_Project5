@@ -1,9 +1,9 @@
-"""Models: custom CNN with optional SE attention, ResNet18, ViT-B/16, and two-stage freezing (Section 7)."""
+"""Models: custom CNN with optional SE attention, ResNet18, ViT-B/16, and two-stage freezing (Sections 7 and 10)."""
 
 from torch import nn
 from torchvision import models
 
-from .config import CFG, CLASSES
+from .config import CLASSES
 
 
 class SEBlock(nn.Module):
@@ -79,22 +79,32 @@ LAYER_OF = {  # last convolutional feature maps of every architecture (for Grad-
 }
 
 
-def set_trainable(model, arch, stage):
-    # stage 'head': only the new classifier is trained; stage 'finetune': (part of) the backbone is unfrozen.
-    if arch not in HEAD_PREFIX:  # models trained from scratch: everything is trainable
+def is_head(cfg, name):
+    # Does parameter `name` belong to the new classifier head?
+    return name.startswith(HEAD_PREFIX.get(cfg["arch"], ()))
+
+
+def set_trainable(model, cfg, stage):
+    # Stage 'head': only the new classifier is trained. Stage 'finetune': cfg["finetune"] decides
+    # (fine-tuning strategies of Section 10):
+    #   'head'    the classifier only (backbone frozen throughout)
+    #   'partial' the last cfg["trainable_blocks"] ViT encoder blocks, the final LayerNorm and the classifier
+    #   'full'    every parameter, including patch embedding, position embedding and class token (default)
+    if (
+        cfg["arch"] not in HEAD_PREFIX
+    ):  # models trained from scratch: everything is trainable
         return
-    n = CFG["vit_trainable_blocks"]
-    vit_blocks = (
-        *tuple(f"encoder.layers.encoder_layer_{i}." for i in range(12 - n, 12)),
-        "encoder.ln.",
-    )
+    scope = "head" if stage == "head" else cfg.get("finetune", "full")
+    if scope == "full":
+        model.requires_grad_(True)
+        return
+    trainable = HEAD_PREFIX[cfg["arch"]]
+    if scope == "partial":
+        n = cfg["trainable_blocks"]
+        blocks = [f"encoder.layers.encoder_layer_{i}." for i in range(12 - n, 12)]
+        trainable = (*trainable, *blocks, "encoder.ln.")
     for name, p in model.named_parameters():
-        if stage == "head":
-            p.requires_grad = name.startswith(HEAD_PREFIX[arch])
-        elif arch == "resnet18":
-            p.requires_grad = True
-        else:
-            p.requires_grad = name.startswith(HEAD_PREFIX[arch] + vit_blocks)
+        p.requires_grad = name.startswith(trainable)
 
 
 def count_params(model, trainable_only=False):
