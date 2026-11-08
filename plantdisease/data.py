@@ -44,10 +44,11 @@ def sparse_checkout(url, root, folders):
 
 def download_github_folders(url, root, folders):
     # Download `folders` of a GitHub repository file by file over HTTPS (no git needed); returns the
-    # folders that contain images afterwards. Characters that Windows does not allow in file names
+    # folders that were downloaded completely. Characters that Windows does not allow in file names
     # (PlantDoc has names like '...picture-id81781575?s=612x612.jpg') are replaced by '_'.
     repo = url.removeprefix("https://github.com/").strip("/")
-    missing = [f for f in folders if not os.path.exists(os.path.join(root, f, ".complete"))]
+    done = [os.path.join(root, f, ".complete") for f in folders]
+    missing = [f for f, d in zip(folders, done, strict=True) if not os.path.exists(d)]
     if missing:
         try:
             api = f"https://api.github.com/repos/{repo}/git/trees/HEAD?recursive=1"
@@ -68,19 +69,20 @@ def download_github_folders(url, root, folders):
                     if os.path.exists(target):
                         continue
                     raw = f"https://raw.githubusercontent.com/{repo}/HEAD/{urllib.parse.quote(path)}"
-                    with urllib.request.urlopen(raw, timeout=60) as response:  # noqa: S310
-                        with open(target + ".part", "wb") as f:
-                            shutil.copyfileobj(response, f)
+                    for attempt in range(3):
+                        try:
+                            with urllib.request.urlopen(raw, timeout=60) as response:  # noqa: S310
+                                with open(target + ".part", "wb") as f:
+                                    shutil.copyfileobj(response, f)
+                            break
+                        except OSError:
+                            if attempt == 2:
+                                raise
                     os.replace(target + ".part", target)
                 open(os.path.join(root, folder, ".complete"), "w").close()  # noqa: SIM115
         except OSError as e:
-            print(f"Download from {url} failed: {e}")
-    return [
-        f
-        for f in folders
-        if os.path.isdir(os.path.join(root, f))
-        and any(n.lower().endswith(IMAGE_SUFFIXES) for n in os.listdir(os.path.join(root, f)))
-    ]
+            print(f"Download from {url} stopped: {e}. Run this again to resume.")
+    return [f for f, d in zip(folders, done, strict=True) if os.path.exists(d)]
 
 
 def download_plantvillage():
