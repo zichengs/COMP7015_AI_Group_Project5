@@ -9,6 +9,7 @@ import shutil
 import subprocess
 import urllib.parse
 import urllib.request
+from collections.abc import Callable, Collection, Iterable
 from dataclasses import dataclass
 from functools import cache, cached_property
 
@@ -30,7 +31,7 @@ IMAGE_SUFFIXES = (".jpg", ".jpeg", ".png")
 # ----------------------------------------------------------------------------
 # Section 2: download
 # ----------------------------------------------------------------------------
-def sparse_checkout(url, root, folders):
+def sparse_checkout(url: str, root: str, folders: list[str]) -> list[str]:
     # Clone only `folders` of a git repository (sparse checkout); returns the folders that exist afterwards.
     git = shutil.which("git")
     if not os.path.exists(root):
@@ -43,7 +44,7 @@ def sparse_checkout(url, root, folders):
     return [f for f in folders if os.path.isdir(os.path.join(root, f))]
 
 
-def field_records(folders):
+def field_records(folders: dict[str, int]) -> pd.DataFrame:
     # PlantDoc photos (Section 19.2, notebook 07) of `folders` ({PlantDoc folder: label}), from the
     # authors' train and test folders: all are test data here. Missing folders are downloaded;
     # folders that are not complete (download failed) are skipped.
@@ -64,7 +65,7 @@ def field_records(folders):
     return pd.DataFrame(rows, columns=["path", "label", "folder"])
 
 
-def download_github_folders(url, root, folders):
+def download_github_folders(url: str, root: str, folders: list[str]) -> list[str]:
     # Download `folders` of a GitHub repository file by file over HTTPS (no git needed); returns the
     # folders that were downloaded completely. Characters that Windows does not allow in file names
     # (PlantDoc has names like '...picture-id81781575?s=612x612.jpg') are replaced by '_'.
@@ -106,7 +107,7 @@ def download_github_folders(url, root, folders):
     return [f for f, d in zip(folders, done, strict=True) if os.path.exists(d)]
 
 
-def download_plantvillage(extra_folders=()):
+def download_plantvillage(extra_folders: Iterable[str] = ()) -> list[str]:
     # The four tomato folders of raw/color (training images) and raw/segmented (background removed),
     # plus `extra_folders` (notebook 07). 'sparse-checkout set' replaces the folder list, so the four
     # tomato folders are always included.
@@ -121,7 +122,9 @@ def download_plantvillage(extra_folders=()):
 # ----------------------------------------------------------------------------
 # Section 3: leaf grouping
 # ----------------------------------------------------------------------------
-def load_records():
+def load_records() -> tuple[
+    dict[str, list[str]], pd.DataFrame, pd.DataFrame, pd.DataFrame
+]:
     # All photos of the four classes -> (leaf_map, all_df, df: training series, other_df: left-out series).
     with open(os.path.join(DATA_ROOT, "leaf-map.json")) as f:
         leaf_map = json.load(f)  # image identifier -> ['<class>:::<leaf group>', ...]
@@ -166,12 +169,12 @@ def load_records():
 # ----------------------------------------------------------------------------
 # Section 4: image cache and background brightness
 # ----------------------------------------------------------------------------
-def load_resized(path, size=CFG["img_size"]):
+def load_resized(path: str, size: int = CFG["img_size"]) -> torch.Tensor:
     img = Image.open(path).convert("RGB").resize((size, size), Image.BILINEAR)
     return torch.from_numpy(np.asarray(img).copy()).permute(2, 0, 1)  # (3, H, W) uint8
 
 
-def build_cache(paths, name):
+def build_cache(paths: Iterable[str], name: str) -> torch.Tensor:
     # Decode + resize all images once and store them as a uint8 tensor (N, 3, H, W).
     file = os.path.join(CFG["cache_dir"], f"{name}_{CFG['img_size']}.pt")
     paths = list(paths)
@@ -187,7 +190,7 @@ def build_cache(paths, name):
 # ----------------------------------------------------------------------------
 # Section 5: leaf-group split and leakage audit
 # ----------------------------------------------------------------------------
-def split_leaves(leaves):
+def split_leaves(leaves: Collection[str]) -> dict[str, str]:
     # Shuffled leaf ids -> {leaf id: 'train' / 'val' / 'test'}, 70/15/15 in this order.
     train_frac, val_frac = CFG["split_fractions"]
     n_train, n_val = round(train_frac * len(leaves)), round(val_frac * len(leaves))
@@ -197,7 +200,7 @@ def split_leaves(leaves):
     }
 
 
-def make_split(df):
+def make_split(df: pd.DataFrame) -> tuple[np.ndarray, ...]:
     # Split the official leaf ids of every class 70/15/15 and audit the result.
     # Adds df["split"]; returns (train_idx, val_idx, test_idx).
     rng = np.random.default_rng(CFG["split_seed"])
@@ -212,7 +215,7 @@ def make_split(df):
     return tuple(np.where(df.split == s)[0] for s in ["train", "val", "test"])
 
 
-def data_fingerprint(df, train_idx):
+def data_fingerprint(df: pd.DataFrame, train_idx: np.ndarray) -> str:
     # Fingerprint of the training photos (file names), the series and the split seed:
     # a saved run is only reused for the same data.
     return hashlib.md5(  # noqa: S324
@@ -225,7 +228,7 @@ def data_fingerprint(df, train_idx):
 
 
 @cache
-def segmented_by_name(folder):
+def segmented_by_name(folder: str) -> dict[str, str]:
     # {original photo name: segmented file} of a segmented folder, for colour photos without the
     # UUID prefix ('RS_Rust 1563.JPG' -> '<uuid>___RS_Rust 1563_final_masked.jpg', notebook 07).
     if not os.path.isdir(folder):
@@ -236,7 +239,7 @@ def segmented_by_name(folder):
     }
 
 
-def segmented_path(path):
+def segmented_path(path: str) -> str:
     # Segmented counterpart of a photo ('<name>_final_masked.jpg').
     # A few segmented files lack the UUID prefix ('Com.G_SpM_FL 1378_final_masked.jpg'):
     # then the original photo name after '___' is used.
@@ -253,7 +256,7 @@ def segmented_path(path):
     return os.path.join(folder, match) if match else by_name
 
 
-def load_segmented(paths, name):
+def load_segmented(paths: Iterable[str], name: str) -> tuple[torch.Tensor, np.ndarray]:
     # Segmented versions of `paths` (aligned; black where no segmented photo exists) and which exist.
     seg_paths = [segmented_path(p) for p in paths]
     exists = np.array([os.path.exists(p) for p in seg_paths])
@@ -263,7 +266,7 @@ def load_segmented(paths, name):
     return images, exists
 
 
-def to_grayscale(images):
+def to_grayscale(images: torch.Tensor) -> torch.Tensor:
     # Grayscale version with three identical channels, so that the same (pre-trained) networks apply.
     return v2.functional.rgb_to_grayscale(images, num_output_channels=3)
 
@@ -276,7 +279,7 @@ MEAN, STD = [0.485, 0.456, 0.406], [0.229, 0.224, 0.225]  # ImageNet statistics
 
 class RandomRot90(nn.Module):
     # Rotate by a random multiple of 90 degrees (lossless, no black corners).
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         return torch.rot90(x, random.randint(0, 3), dims=(-2, -1))  # noqa: S311
 
 
@@ -295,7 +298,13 @@ eval_tf = normalize
 
 class CachedDataset(Dataset):
     # Serves images from a cached uint8 tensor (indexed, not copied) and applies a transform.
-    def __init__(self, images, labels, indices, transform):
+    def __init__(
+        self,
+        images: torch.Tensor,
+        labels: torch.Tensor,
+        indices: np.ndarray,
+        transform: Callable[[torch.Tensor], torch.Tensor],
+    ) -> None:
         self.images, self.labels, self.indices, self.transform = (
             images,
             labels,
@@ -303,15 +312,17 @@ class CachedDataset(Dataset):
             transform,
         )
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.indices)
 
-    def __getitem__(self, i):
+    def __getitem__(self, i: int) -> tuple[torch.Tensor, torch.Tensor]:
         j = self.indices[i]
         return self.transform(self.images[j]), self.labels[j]
 
 
-def make_loader(dataset, batch_size, seed=None):
+def make_loader(
+    dataset: Dataset, batch_size: int, seed: int | None = None
+) -> DataLoader:
     # Shuffled (seeded) loader for training, ordered loader for evaluation.
     return DataLoader(
         dataset,
@@ -324,7 +335,12 @@ def make_loader(dataset, batch_size, seed=None):
     )
 
 
-def eval_loader(images, labels=None, indices=None, batch_size=64):
+def eval_loader(
+    images: torch.Tensor,
+    labels: torch.Tensor | np.ndarray | None = None,
+    indices: np.ndarray | None = None,
+    batch_size: int = 64,
+) -> DataLoader:
     # Ordered loader over (a subset of) an image tensor with the evaluation transform.
     indices = np.arange(len(images)) if indices is None else indices
     labels = torch.zeros(len(images), dtype=torch.long) if labels is None else labels
@@ -333,7 +349,7 @@ def eval_loader(images, labels=None, indices=None, batch_size=64):
     )
 
 
-def class_weights(df, train_idx):
+def class_weights(df: pd.DataFrame, train_idx: np.ndarray) -> torch.Tensor:
     # Class-weighted loss: w_c = N / (K * n_c) over the training photos.
     k = max(len(CLASSES), df.label.max() + 1)  # more than four classes in notebook 07
     train_counts = np.bincount(df.label[train_idx], minlength=k)
@@ -355,20 +371,20 @@ class Data:
     data_id: str
 
     @property
-    def class_weights(self):
+    def class_weights(self) -> torch.Tensor:
         return class_weights(self.df, self.train_idx)
 
     @property
-    def y_test(self):
+    def y_test(self) -> np.ndarray:
         return self.labels[self.test_idx].numpy()
 
     @cached_property
-    def segmented(self):
+    def segmented(self) -> tuple[torch.Tensor, np.ndarray]:
         # Background-removed version of every photo -> (images, exists), aligned with self.images.
         return load_segmented(self.df["path"], "segmented")
 
     @cached_property
-    def swap_masks(self):
+    def swap_masks(self) -> tuple[torch.Tensor, np.ndarray]:
         # Leaf masks of all photos for the background swap of Section 18 -> (masks, usable).
         # imported here: backgrounds imports this module
         from .backgrounds import training_masks  # noqa: PLC0415
@@ -376,10 +392,10 @@ class Data:
         return training_masks(self)
 
     @cached_property
-    def grayscale(self):
+    def grayscale(self) -> torch.Tensor:
         return to_grayscale(self.images)
 
-    def input_images(self, variant):
+    def input_images(self, variant: str) -> torch.Tensor:
         # The photos in one input version: 'color', 'grayscale' or 'segmented' (background removed).
         return {
             "color": lambda: self.images,
@@ -388,7 +404,7 @@ class Data:
         }[variant]()
 
 
-def prepare():
+def prepare() -> Data:
     # Rebuild the deterministic data protocol of notebook 01 from the image cache.
     _, _, df, other_df = load_records()
     images = build_cache(df["path"], "color")

@@ -2,6 +2,7 @@
 
 import json
 import os
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -111,7 +112,7 @@ HELD_OUT_PER_FOLDER = 150  # photos of every held-out folder (test only)
 # ----------------------------------------------------------------------------
 # Download and records
 # ----------------------------------------------------------------------------
-def download_open_set():
+def download_open_set() -> None:
     # raw/color and raw/segmented (background removed) of every training and held-out folder.
     folders = [
         f"raw/{kind}/{f}"
@@ -125,7 +126,7 @@ def download_open_set():
     assert not missing, f"not downloaded: {missing}"
 
 
-def folder_photos(folder):
+def folder_photos(folder: str) -> list[str]:
     # Photos of a folder that also have a background-removed version (the models train on those).
     folder_dir = os.path.join(DATA_ROOT, "raw", "color", folder)
     return [
@@ -136,7 +137,13 @@ def folder_photos(folder):
     ]
 
 
-def sample_folder(leaf_map, folder, label, n_photos, rng):
+def sample_folder(
+    leaf_map: dict[str, list[str]],
+    folder: str,
+    label: int,
+    n_photos: int,
+    rng: np.random.Generator,
+) -> list[dict[str, Any]]:
     # Whole leaves of one folder in random order, at most PHOTOS_PER_LEAF photos each, until
     # n_photos are reached. The leaves are split 70/15/15 like the tomato classes (make_split).
     leaf_of = {}  # photo -> official leaf id (leaf-map.json only)
@@ -174,7 +181,7 @@ def sample_folder(leaf_map, folder, label, n_photos, rng):
     return rows
 
 
-def open_set_records():
+def open_set_records() -> pd.DataFrame:
     # Photos of the two new classes: about PHOTOS_PER_CLASS per class, spread evenly over the folders.
     with open(os.path.join(DATA_ROOT, "leaf-map.json")) as f:
         leaf_map = json.load(f)
@@ -190,7 +197,7 @@ def open_set_records():
 # ----------------------------------------------------------------------------
 # Six-class data: the tomato photos and split of notebook 01 plus the new classes
 # ----------------------------------------------------------------------------
-def prepare_open_set(data):
+def prepare_open_set(data: Data) -> Data:
     # data: the four-class data of prepare(). Returns Data with labels 0-5; the first photos are
     # those of `data`, with the same split.
     new_df = open_set_records()
@@ -221,7 +228,7 @@ def prepare_open_set(data):
 # ----------------------------------------------------------------------------
 # Out-of-scope test photos
 # ----------------------------------------------------------------------------
-def held_out_records():
+def held_out_records() -> pd.DataFrame:
     # HELD_OUT_PER_FOLDER photos of every held-out folder (leaf ids are not needed: test only).
     rng = np.random.default_rng(CFG["split_seed"])
     rows = []
@@ -242,7 +249,7 @@ def held_out_records():
     return pd.DataFrame(rows)
 
 
-def out_of_scope_field_records():
+def out_of_scope_field_records() -> pd.DataFrame:
     # PlantDoc photos of other tomato diseases and other crops, with whether their kind is seen in training.
     field_df = field_records({f: label for f, (label, _) in FIELD_FOLDERS.items()})
     return field_df.assign(
@@ -253,17 +260,17 @@ def out_of_scope_field_records():
 # ----------------------------------------------------------------------------
 # Rejection: does a model refuse a photo outside the four tomato classes?
 # ----------------------------------------------------------------------------
-def tomato_confidence(probs):
+def tomato_confidence(probs: np.ndarray) -> np.ndarray:
     # Probability of the most likely tomato class (four-class models: the usual confidence).
     return probs[:, TOMATO_LABELS].max(1)
 
 
-def rejection_threshold(val_probs, keep=0.95):
+def rejection_threshold(val_probs: np.ndarray, keep: float = 0.95) -> float:
     # Confidence threshold that keeps `keep` of the tomato validation photos.
     return np.quantile(tomato_confidence(val_probs), 1 - keep)
 
 
-def rejected(probs, threshold):
+def rejected(probs: np.ndarray, threshold: float) -> np.ndarray:
     # A photo is rejected if the model predicts a class outside the four tomato classes
     # (six-class models only) or if its tomato confidence is below the threshold.
     return (probs.argmax(1) >= len(TOMATO_LABELS)) | (
@@ -271,7 +278,9 @@ def rejected(probs, threshold):
     )
 
 
-def out_of_scope_auroc(probs_in, probs_out):
+def out_of_scope_auroc(
+    probs_in: np.ndarray, probs_out: np.ndarray
+) -> float | np.floating:
     # Threshold-free separation of tomato photos (in scope) from out-of-scope photos by
     # 1 - tomato confidence: 0.5 = chance, 1 = perfect.
     score = 1 - np.concatenate(

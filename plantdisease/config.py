@@ -88,7 +88,7 @@ with open(os.path.join(OUT_DIR, "config.json"), "w") as f:
     json.dump(CFG, f, indent=2)
 
 
-def set_seed(seed):
+def set_seed(seed: int) -> None:
     # Fix all random number generators so that runs are reproducible.
     random.seed(seed)
     np.random.seed(seed)
@@ -112,7 +112,7 @@ USE_AMP = (
 )  # mixed precision: large speed-up on NVIDIA GPUs (no gain on Apple MPS)
 
 
-def synchronize():
+def synchronize() -> None:
     # Wait for the GPU (CUDA or Apple MPS) to finish, so that timings are correct.
     if device.type == "cuda":
         torch.cuda.synchronize()
@@ -120,6 +120,6 @@ def synchronize():
         torch.mps.synchronize()
 
 
-def out_path(name):
+def out_path(name: str) -> str:
     # Path of a table or figure in OUT_DIR.
     return os.path.join(OUT_DIR, name)

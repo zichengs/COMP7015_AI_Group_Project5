@@ -1,6 +1,8 @@
 """Models: custom CNN with optional SE attention, ResNet18, ViT-B/16, and two-stage freezing (Sections 7 and 10)."""
 
-from torch import nn
+from typing import Any
+
+from torch import Tensor, nn
 from torchvision import models
 
 from .config import CLASSES
@@ -8,7 +10,7 @@ from .config import CLASSES
 
 class SEBlock(nn.Module):
     # Squeeze-and-Excitation channel attention.
-    def __init__(self, channels, reduction=8):
+    def __init__(self, channels: int, reduction: int = 8) -> None:
         super().__init__()
         self.fc = nn.Sequential(
             nn.Linear(channels, channels // reduction),
@@ -17,7 +19,7 @@ class SEBlock(nn.Module):
             nn.Sigmoid(),
         )
 
-    def forward(self, x):
+    def forward(self, x: Tensor) -> Tensor:
         weights = self.fc(
             x.mean(dim=(2, 3))
         )  # squeeze: one value per channel -> attention weight in (0, 1)
@@ -25,7 +27,9 @@ class SEBlock(nn.Module):
 
 
 class CustomCNN(nn.Module):
-    def __init__(self, num_classes, dropout=0.3, attention=False):
+    def __init__(
+        self, num_classes: int, dropout: float = 0.3, attention: bool = False
+    ) -> None:
         super().__init__()
         layers = []
         for c_in, c_out in [
@@ -46,12 +50,12 @@ class CustomCNN(nn.Module):
         self.dropout = nn.Dropout(dropout)
         self.fc = nn.Linear(256, num_classes)
 
-    def forward(self, x):
+    def forward(self, x: Tensor) -> Tensor:
         x = self.features(x).mean(dim=(2, 3))  # global average pooling
         return self.fc(self.dropout(x))
 
 
-def build_model(cfg, pretrained=True):
+def build_model(cfg: dict[str, Any], pretrained: bool = True) -> nn.Module:
     # number of outputs: the four classes, or more for the open-set runs of notebook 07
     k = cfg.get("num_classes", len(CLASSES))
     if cfg["arch"] in ("cnn", "se_cnn"):
@@ -79,12 +83,12 @@ LAYER_OF = {  # last convolutional feature maps of every architecture (for Grad-
 }
 
 
-def is_head(cfg, name):
+def is_head(cfg: dict[str, Any], name: str) -> bool:
     # Does parameter `name` belong to the new classifier head?
     return name.startswith(HEAD_PREFIX.get(cfg["arch"], ()))
 
 
-def set_trainable(model, cfg, stage):
+def set_trainable(model: nn.Module, cfg: dict[str, Any], stage: str) -> None:
     # Stage 'head': only the new classifier is trained. Stage 'finetune': cfg["finetune"] decides
     # (fine-tuning strategies of Section 10):
     #   'head'    the classifier only (backbone frozen throughout)
@@ -107,7 +111,7 @@ def set_trainable(model, cfg, stage):
         p.requires_grad = name.startswith(trainable)
 
 
-def count_params(model, trainable_only=False):
+def count_params(model: nn.Module, trainable_only: bool = False) -> int:
     return sum(
         p.numel() for p in model.parameters() if p.requires_grad or not trainable_only
     )

@@ -1,6 +1,7 @@
 """Leaf masks and backgrounds: test variants (14), same-leaf background tests (16), countermeasure (18)."""
 
 import random
+from collections.abc import Callable
 from dataclasses import dataclass, field
 
 import numpy as np
@@ -9,22 +10,24 @@ import torch.nn.functional as F  # noqa: N812
 from scipy.ndimage import binary_closing, binary_fill_holes
 from torchvision.transforms import v2
 
-from .data import CachedDataset, to_grayscale
+from .data import CachedDataset, Data, to_grayscale
 
 
-def leaf_masks(segmented, threshold=10):
+def leaf_masks(segmented: torch.Tensor, threshold: int = 10) -> torch.Tensor:
     # Leaf = every pixel that is not black in the segmented photo; closing and hole filling bridge small gaps.
     mask = (segmented.amax(dim=1) > threshold).numpy()
     mask = [binary_fill_holes(binary_closing(m, iterations=3)) for m in mask]
     return torch.from_numpy(np.stack(mask))
 
 
-def trusted(masks):
+def trusted(masks: torch.Tensor) -> np.ndarray:
     # A leaf mask can only be used if it contains leaf pixels at all (empty or missing masks: the photo stays unchanged)
     return masks.flatten(1).any(1).numpy()
 
 
-def free_corner(image, mask, size=32):
+def free_corner(
+    image: torch.Tensor, mask: torch.Tensor, size: int = 32
+) -> torch.Tensor | None:
     # The first image corner of size x size pixels that contains no leaf pixel (None if there is none).
     h, w = image.shape[-2:]
     for rows, cols in (
@@ -38,7 +41,9 @@ def free_corner(image, mask, size=32):
     return None
 
 
-def background_tiles(images, masks):
+def background_tiles(
+    images: torch.Tensor, masks: torch.Tensor
+) -> tuple[torch.Tensor, np.ndarray]:
     # A leaf-free corner tile of every photo (found is False if all four corners touch the leaf).
     tiles = [free_corner(i, m) for i, m in zip(images, masks, strict=True)]
     found = np.array([t is not None for t in tiles])
@@ -46,7 +51,7 @@ def background_tiles(images, masks):
     return torch.stack([empty if t is None else t for t in tiles]), found
 
 
-def mirrored(tile, h, w):
+def mirrored(tile: torch.Tensor, h: int, w: int) -> torch.Tensor:
     # Cover an h x w image with a background patch and its mirror images, so that no seams appear.
     block = torch.cat([tile, tile.flip(-1)], dim=-1)
     block = torch.cat([block, block.flip(-2)], dim=-2)
@@ -54,7 +59,7 @@ def mirrored(tile, h, w):
     return block.repeat(1, -(-h // size), -(-w // size))[:, :h, :w]
 
 
-def stripes(n, h, w, seed=1):
+def stripes(n: int, h: int, w: int, seed: int = 1) -> torch.Tensor:
     # Diagonal stripes in two random colours: a background type that never occurs in training.
     gen = torch.Generator().manual_seed(seed)
     yy, xx = torch.meshgrid(torch.arange(h), torch.arange(w), indexing="ij")
@@ -85,16 +90,16 @@ class TestVariants:
     )
 
     @property
-    def original(self):
+    def original(self) -> torch.Tensor:
         return self.variants["original"]
 
     @property
-    def all_tests(self):
+    def all_tests(self) -> dict[str, torch.Tensor]:
         # every test version of the same leaves
         return {**self.variants, **self.background_tests}
 
 
-def image_changes(images):
+def image_changes(images: torch.Tensor) -> dict[str, torch.Tensor]:
     # Grayscale, darker, blurred and noisy versions of uint8 photos (Section 14).
     gen = torch.Generator().manual_seed(0)
     return {
@@ -111,7 +116,7 @@ def image_changes(images):
     }
 
 
-def make_test_variants(data, verbose=True):
+def make_test_variants(data: Data, verbose: bool = True) -> TestVariants:
     # Section 14: original, background removed, grayscale, darker, blur and noise versions of the test leaves.
     seg_images, exists = data.segmented
     has_seg = exists[data.test_idx]
@@ -129,7 +134,7 @@ def make_test_variants(data, verbose=True):
     return TestVariants(variants=variants, y=data.y_test[has_seg], has_seg=has_seg)
 
 
-def add_background_tests(tv, verbose=True):
+def add_background_tests(tv: TestVariants, verbose: bool = True) -> TestVariants:
     # Section 16: the leaf of every test photo on a background tile of a photo of the same / another class.
     tv.masks = leaf_masks(tv.variants["background removed"])
     has_leaf = tv.masks.flatten(1).any(1)
@@ -160,7 +165,7 @@ def add_background_tests(tv, verbose=True):
 
     h, w = orig.shape[-2:]
 
-    def leaf_on_tile(donors):
+    def leaf_on_tile(donors: list[int]) -> torch.Tensor:
         # The leaf of every test photo on the (mirrored) background tile of its donor photo.
         return torch.stack(
             [
@@ -183,7 +188,7 @@ def add_background_tests(tv, verbose=True):
 # ----------------------------------------------------------------------------
 # Section 18: training with random backgrounds
 # ----------------------------------------------------------------------------
-def training_masks(data):
+def training_masks(data: Data) -> tuple[torch.Tensor, np.ndarray]:
     # Leaf masks of all photos (aligned with data.images) and which of them can be used for the swap.
     seg_all, exists = data.segmented
     print(f"{(~exists).sum()} of {len(exists)} photos have no segmented version")
@@ -199,7 +204,13 @@ def training_masks(data):
     return masks, swap_ok
 
 
-def corner_background(shape, pool, pool_indices, masks, swap_ok):
+def corner_background(
+    shape: torch.Size,
+    pool: torch.Tensor,
+    pool_indices: np.ndarray,
+    masks: torch.Tensor,
+    swap_ok: np.ndarray,
+) -> torch.Tensor:
     # A leaf-free corner tile of a random photo of the pool, repeated over the image (black if none is found).
     _, h, w = shape
     for _ in range(10):
@@ -210,7 +221,13 @@ def corner_background(shape, pool, pool_indices, masks, swap_ok):
     return torch.zeros(3, h, w, dtype=torch.uint8)
 
 
-def random_background(shape, pool, pool_indices, masks, swap_ok):
+def random_background(
+    shape: torch.Size,
+    pool: torch.Tensor,
+    pool_indices: np.ndarray,
+    masks: torch.Tensor,
+    swap_ok: np.ndarray,
+) -> torch.Tensor:
     # One random background (3, H, W): black, solid colour, colour gradient, smooth noise or a leaf-free corner tile of another training photo.
     _, h, w = shape
     kind = random.randrange(5)  # noqa: S311
@@ -240,23 +257,23 @@ class BackgroundSwapDataset(CachedDataset):
     # a random one, or (class_matched, the control) a corner tile of a training photo of the same class.
     def __init__(
         self,
-        images,
-        labels,
-        indices,
-        transform,
+        images: torch.Tensor,
+        labels: torch.Tensor,
+        indices: np.ndarray,
+        transform: Callable[[torch.Tensor], torch.Tensor],
         *,
-        p,
-        masks,
-        swap_ok,
-        class_matched=False,
-    ):
+        p: float,
+        masks: torch.Tensor,
+        swap_ok: np.ndarray,
+        class_matched: bool = False,
+    ) -> None:
         super().__init__(images, labels, indices, transform)
         self.p, self.class_matched = p, class_matched
         self.masks, self.swap_ok = masks, swap_ok
         classes = labels[indices].numpy()
         self.pools = {c: indices[classes == c] for c in np.unique(classes)}
 
-    def __getitem__(self, i):
+    def __getitem__(self, i: int) -> tuple[torch.Tensor, torch.Tensor]:
         j = self.indices[i]
         image = self.images[j]
         if self.swap_ok[j] and random.random() < self.p:  # noqa: S311

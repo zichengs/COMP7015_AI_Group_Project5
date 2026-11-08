@@ -15,19 +15,19 @@ LEAF_MAP_CLASS_ALIASES = {"Apple_Frogeye Spot": "Apple___Black_rot"}
 LEAF_MAP_KEY_PREFIXES = {"com.g_tgs_fl ": "com.g_fl "}
 
 
-def image_key(file_name):
+def image_key(file_name: str) -> str:
     # '0031da2a-...___RS_HL 0105 copy.JPG' -> 'rs_hl 0105' (same logic as the repository's plant_village.py)
     key = file_name.split("___")[-1].split("copy")[0].strip()
     return EXT_PATTERN.sub("", key).strip().lower()
 
 
-def leaf_class(entry):
+def leaf_class(entry: str) -> str:
     # '<class>:::<leaf group>' -> class folder name
     class_name = entry.split(":::")[0]
     return LEAF_MAP_CLASS_ALIASES.get(class_name, class_name)
 
 
-def leaf_map_key(key):
+def leaf_map_key(key: str) -> str:
     # image key -> key used in leaf-map.json
     for new, old in LEAF_MAP_KEY_PREFIXES.items():
         if key.startswith(new):
@@ -35,7 +35,9 @@ def leaf_map_key(key):
     return key
 
 
-def leaf_id(leaf_map, class_name, file_name):
+def leaf_id(
+    leaf_map: dict[str, list[str]], class_name: str, file_name: str
+) -> tuple[str | None, str]:
     # (leaf id, source) of a photo of the folder `class_name`; the leaf id is None if the photo has
     # no usable leaf information. The exact name is tried before the key without 'copy':
     # leaf-map.json has own entries for some '... copy' files, which are different photos.

@@ -1,23 +1,28 @@
 """Small plotting helpers shared by the notebooks."""
 
+from collections.abc import Sequence
+from typing import Any
+
 import matplotlib.pyplot as plt
 import numpy as np
+import numpy.typing as npt
+from matplotlib.axes import Axes
 
 from .config import out_path
 
 
 def grouped_bars(
-    ax,
-    xlabels,
-    series,
-    means,
+    ax: Axes,
+    xlabels: Sequence[str],
+    series: Sequence[str],
+    means: Sequence[npt.ArrayLike],
     *,
-    seeds=None,
-    yerr=None,
-    jitter=False,
-    dot_size=8,
-    **bar_kw,
-):
+    seeds: Sequence[Any] | None = None,
+    yerr: Sequence[npt.ArrayLike] | None = None,
+    jitter: bool = False,
+    dot_size: float = 8,
+    **bar_kw: Any,
+) -> None:
     # One group of bars per x label and one bar per series; optional error bars and black dots for the seeds.
     # means[k][j] / yerr[k] / seeds[k][j]: series k at x label j (seeds[k] may be None: no dots for that series).
     x_pos, width = np.arange(len(xlabels)), 0.8 / len(series)
@@ -47,13 +52,13 @@ def grouped_bars(
     ax.set_xticks(x_pos, xlabels)
 
 
-def stack_curves(histories, key):
+def stack_curves(histories: Sequence[dict[str, Any]], key: str) -> np.ndarray:
     # Per-epoch values of several runs as one (runs, epochs) array; NaN after a run stopped early.
     n = max(len(h[key]) for h in histories)
     return np.array([h[key] + [np.nan] * (n - len(h[key])) for h in histories])
 
 
-def mean_and_sd(values):
+def mean_and_sd(values: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     # Per-epoch mean and sample sd over runs, ignoring NaN (sd 0 where only one run is left).
     n = np.sum(~np.isnan(values), 0)
     mean = np.nanmean(values, 0)
@@ -61,7 +66,7 @@ def mean_and_sd(values):
     return mean, sd
 
 
-def finish(file_name=None):
+def finish(file_name: str | None = None) -> None:
     # tight layout, save to OUT_DIR (if a file name is given) and show.
     plt.tight_layout()
     if file_name:

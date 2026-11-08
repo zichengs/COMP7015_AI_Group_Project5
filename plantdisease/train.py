@@ -7,6 +7,8 @@ import os
 import re
 import shutil
 import time
+from collections.abc import Callable, Iterable, Sequence
+from typing import Any
 
 import numpy as np
 import torch
@@ -15,15 +17,16 @@ from sklearn.metrics import accuracy_score, f1_score
 from torch import nn
 from torch.optim import AdamW
 from torch.optim.lr_scheduler import CosineAnnealingLR
+from torch.utils.data import DataLoader
 
 from .backgrounds import BackgroundSwapDataset
 from .config import RUNS_DIR, SEEDS, USE_AMP, device, set_seed, synchronize
-from .data import CachedDataset, eval_loader, eval_tf, make_loader, train_tf
+from .data import CachedDataset, Data, eval_loader, eval_tf, make_loader, train_tf
 from .experiments import config_of
 from .models import build_model, count_params, is_head, set_trainable
 
 
-def predict(model, loader):
+def predict(model: nn.Module, loader: DataLoader) -> tuple[torch.Tensor, torch.Tensor]:
     # Return logits and labels for a whole loader.
     model.eval()
     all_logits, all_labels = [], []
@@ -37,17 +40,17 @@ def predict(model, loader):
     return torch.cat(all_logits), torch.cat(all_labels)
 
 
-def safe_name(name):
+def safe_name(name: str) -> str:
     # File-system safe version of a run or test-set name, e.g. 'ViT-B/16' -> 'ViT-B_16'.
     return re.sub(r"[^\w.=+-]+", "_", name)
 
 
-def run_path(name, seed):
+def run_path(name: str, seed: int) -> str:
     # Folder of one run.
     return os.path.join(RUNS_DIR, safe_name(name) + f"__seed{seed}")
 
 
-def train_dataset(cfg, data):
+def train_dataset(cfg: dict[str, Any], data: Data) -> CachedDataset:
     # Training set of a configuration: its input version, augmentation and (Section 18) background swap.
     transform = train_tf if cfg["augment"] else eval_tf
     images = data.input_images(cfg.get("input", "color"))
@@ -66,7 +69,7 @@ def train_dataset(cfg, data):
     return CachedDataset(images, data.labels, data.train_idx, transform)
 
 
-def make_optimizer(model, cfg, stage):
+def make_optimizer(model: nn.Module, cfg: dict[str, Any], stage: str) -> AdamW:
     # AdamW over the trainable parameters. In the fine-tuning stage the classifier head and the
     # backbone can have different learning rates (ViT: head 1e-4, backbone 1e-5).
     head = [
@@ -92,7 +95,7 @@ class PeakMemory:
     # Peak memory that PyTorch allocates on the device during training (model, gradients, optimizer
     # state, activations), in MiB. CUDA: the exact peak. Apple MPS has no peak counter, so the
     # maximum of samples taken after every forward and backward pass is used. CPU: not measured.
-    def __init__(self):
+    def __init__(self) -> None:
         gc.collect()
         if device.type == "cuda":
             torch.cuda.empty_cache()
@@ -101,12 +104,12 @@ class PeakMemory:
             torch.mps.empty_cache()
         self.peak = 0
 
-    def sample(self):
+    def sample(self) -> None:
         if device.type == "mps":
             self.peak = max(self.peak, torch.mps.current_allocated_memory())
 
     @property
-    def mib(self):
+    def mib(self) -> float:
         if device.type == "cuda":
             return torch.cuda.max_memory_allocated() / 2**20
         if device.type == "mps":
@@ -114,7 +117,7 @@ class PeakMemory:
         return float("nan")
 
 
-def run(name, cfg, seed, data):  # noqa: PLR0915
+def run(name: str, cfg: dict[str, Any], seed: int, data: Data) -> dict[str, Any]:  # noqa: PLR0915
     # Train one configuration with one seed (or load it if it was trained before). Returns the history.
     run_dir = run_path(name, seed)
     history_file = os.path.join(run_dir, "history.json")
@@ -237,12 +240,14 @@ def run(name, cfg, seed, data):  # noqa: PLR0915
     return history
 
 
-def run_seeds(name, data, seeds=SEEDS):
+def run_seeds(
+    name: str, data: Data, seeds: Sequence[int] = SEEDS
+) -> list[dict[str, Any]]:
     # Train (or load) a run name with every training seed.
     return [run(name, config_of(name), seed, data) for seed in seeds]
 
 
-def load_model(name, seed):
+def load_model(name: str, seed: int) -> nn.Module:
     # Rebuild a model and load its best checkpoint.
     # the checkpoint holds all weights
     model = build_model(config_of(name), pretrained=False)
@@ -253,16 +258,18 @@ def load_model(name, seed):
     return model.to(device).eval()
 
 
-def load_history(name, seed):
+def load_history(name: str, seed: int) -> dict[str, Any]:
     with open(os.path.join(run_path(name, seed), "history.json")) as f:
         return json.load(f)["history"]
 
 
-def fingerprint(images):
+def fingerprint(images: torch.Tensor) -> str:
     return hashlib.md5(images.numpy().tobytes()).hexdigest()[:10]  # noqa: S324
 
 
-def cached_arrays(name, seed, jobs):
+def cached_arrays(
+    name: str, seed: int, jobs: dict[str, Callable[[nn.Module], np.ndarray]]
+) -> dict[str, np.ndarray]:
     # Results of one run, cached as <run>/preds/<file>: jobs = {file name: compute(model) -> array}.
     # The model is loaded only if a file is missing; later notebooks reuse the files.
     pred_dir = os.path.join(run_path(name, seed), "preds")
@@ -278,7 +285,11 @@ def cached_arrays(name, seed, jobs):
     return results
 
 
-def predict_probs(names, image_sets, seeds=SEEDS):
+def predict_probs(
+    names: Iterable[str],
+    image_sets: dict[str, torch.Tensor],
+    seeds: Sequence[int] = SEEDS,
+) -> dict[tuple[str, int, str], np.ndarray]:
     # Softmax probabilities for every (model, seed, test set): {(name, seed, set name): (N, K) array}.
     # They are cached in <run>/preds/, keyed by the image content.
     files = {s: f"{safe_name(s)}_{fingerprint(i)}.npy" for s, i in image_sets.items()}
@@ -297,6 +308,10 @@ def predict_probs(names, image_sets, seeds=SEEDS):
     return probs
 
 
-def predict_labels(names, image_sets, seeds=SEEDS):
+def predict_labels(
+    names: Iterable[str],
+    image_sets: dict[str, torch.Tensor],
+    seeds: Sequence[int] = SEEDS,
+) -> dict[tuple[str, int, str], np.ndarray]:
     # Like predict_probs, but the predicted classes.
     return {k: p.argmax(1) for k, p in predict_probs(names, image_sets, seeds).items()}

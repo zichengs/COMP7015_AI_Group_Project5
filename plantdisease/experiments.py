@@ -2,6 +2,7 @@
 
 import json
 import os
+from typing import Any
 
 from .config import CFG, out_path
 
@@ -121,19 +122,19 @@ OPEN_SET = {"6 classes": {"num_classes": 6}}
 DERIVED = {**INPUT_TRAINING, **COUNTERMEASURES, **OPEN_SET}
 
 
-def input_training_names(base):
+def input_training_names(base: str) -> list[str]:
     return [f"{base} + {suffix}" for suffix in INPUT_TRAINING]
 
 
-def countermeasure_names(base):
+def countermeasure_names(base: str) -> list[str]:
     return [f"{base} + {suffix}" for suffix in COUNTERMEASURES]
 
 
-def open_set_name(base):
+def open_set_name(base: str) -> str:
     return f"{base} + {next(iter(OPEN_SET))}"
 
 
-def config_of(name):
+def config_of(name: str) -> dict[str, Any]:
     # Configuration of a run name (tuning runs, final models and derived runs). Suffixes can be
     # combined, e.g. '<model> + background-removed training + 6 classes' (notebook 07).
     for suffix, change in DERIVED.items():
@@ -149,7 +150,7 @@ def config_of(name):
 FINAL_MODELS_FILE = out_path("final_models.json")
 
 
-def save_selected(family, name):
+def save_selected(family: str, name: str) -> None:
     # Record the model selected on the validation set for a family ('cnn', 'resnet18' or 'vit_b_16').
     selected = {}
     if os.path.exists(FINAL_MODELS_FILE):
@@ -160,7 +161,7 @@ def save_selected(family, name):
         json.dump(selected, f, indent=2)
 
 
-def load_final_models():
+def load_final_models() -> tuple[str, str, str]:
     # The selected models -> (BEST_CNN, BEST_RESNET, BEST_VIT).
     with open(FINAL_MODELS_FILE) as f:
         selected = json.load(f)
