@@ -1,0 +1,17 @@
+run,arch,lr,batch,dropout,augment,class_w,schedule,best_epoch,val_acc,val_macro_f1,train_s_per_epoch
+SE-CNN (full recipe),se_cnn,0.001,32,0.3,True,True,cosine,14,1.0,1.0,20.1072585578948
+SE-CNN lr=3e-4,se_cnn,0.0003,32,0.3,True,True,cosine,11,0.9971428571428571,0.9973631818685381,8.282382075000044
+SE-CNN lr=3e-3,se_cnn,0.003,32,0.3,True,True,cosine,12,0.9971428571428571,0.9972636059592581,14.613053282352935
+CNN (no attention),cnn,0.001,32,0.3,True,True,cosine,9,0.99,0.9903397174591348,11.054713071428589
+SE-CNN no augmentation,se_cnn,0.001,32,0.3,False,True,cosine,7,0.9942857142857143,0.9936828946041001,5.729752108333439
+SE-CNN no dropout,se_cnn,0.001,32,0.0,True,True,cosine,13,0.9957142857142857,0.9960290157070122,13.608748494444423
+SE-CNN no class weights,se_cnn,0.001,32,0.3,True,False,cosine,5,0.9928571428571429,0.9926142960716833,11.479043709999951
+SE-CNN constant lr,se_cnn,0.001,32,0.3,True,True,constant,22,1.0,1.0,13.734192662962952
+SE-CNN batch size 64,se_cnn,0.001,64,0.3,True,True,cosine,12,0.9928571428571429,0.9926492486369047,19.726599935294228
+ResNet18 frozen backbone,resnet18,0.0001,32,0.0,True,True,constant,9,0.9771428571428571,0.9758150774544218,2.7951323071428567
+"ResNet18 full FT, constant lr",resnet18,0.0001,32,0.0,True,True,constant,7,1.0,1.0,5.44999555833336
+"ResNet18 two-stage + cosine, lr=1e-4",resnet18,0.0001,32,0.0,True,True,cosine,5,1.0,1.0,5.333298190000005
+"ResNet18 two-stage + cosine, lr=3e-4",resnet18,0.0003,32,0.0,True,True,cosine,7,1.0,1.0,5.305702866666631
+ResNet18 batch size 64,resnet18,0.0001,64,0.0,True,True,cosine,7,1.0,1.0,4.96228537500004
+ResNet18 no augmentation,resnet18,0.0001,32,0.0,False,True,cosine,2,1.0,1.0,5.419643971428611
+ResNet18 weight decay 1e-2,resnet18,0.0001,32,0.0,True,True,cosine,7,1.0,1.0,5.5902000333333035

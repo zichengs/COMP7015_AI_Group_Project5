@@ -1,0 +1,21 @@
+condition,model,baseline,A - B (mean),A - B (sd),A higher in
+original,SE-CNN lr=3e-4 + random backgrounds,SE-CNN lr=3e-4,-0.06335786964207202,0.009667249181248363,0 of 3 seeds
+original,SE-CNN lr=3e-4 + class-matched backgrounds,SE-CNN lr=3e-4,-0.02740974792904301,0.036181127325169794,1 of 3 seeds
+original,"ResNet18 full FT, constant lr + random backgrounds","ResNet18 full FT, constant lr",-0.0024805799360024805,0.003251821290531012,1 of 3 seeds
+original,"ResNet18 full FT, constant lr + class-matched backgrounds","ResNet18 full FT, constant lr",-0.0022555172111896615,0.001359783668505884,0 of 3 seeds
+new background (stripes),SE-CNN lr=3e-4 + random backgrounds,SE-CNN lr=3e-4,0.4114374005592582,0.015405958774380824,3 of 3 seeds
+new background (stripes),SE-CNN lr=3e-4 + class-matched backgrounds,SE-CNN lr=3e-4,-0.03482402529065887,0.03651876063127692,1 of 3 seeds
+new background (stripes),"ResNet18 full FT, constant lr + random backgrounds","ResNet18 full FT, constant lr",0.6636071803440389,0.01079162910473783,3 of 3 seeds
+new background (stripes),"ResNet18 full FT, constant lr + class-matched backgrounds","ResNet18 full FT, constant lr",0.19396248526066365,0.1360419685188518,3 of 3 seeds
+same-class background,SE-CNN lr=3e-4 + random backgrounds,SE-CNN lr=3e-4,-0.016526353587239046,0.00635909612342142,0 of 3 seeds
+same-class background,SE-CNN lr=3e-4 + class-matched backgrounds,SE-CNN lr=3e-4,0.02982101093476101,0.06395148872910737,2 of 3 seeds
+same-class background,"ResNet18 full FT, constant lr + random backgrounds","ResNet18 full FT, constant lr",0.012180447592911703,0.00849031245251432,3 of 3 seeds
+same-class background,"ResNet18 full FT, constant lr + class-matched backgrounds","ResNet18 full FT, constant lr",0.010588954036348297,0.013642394662074729,2 of 3 seeds
+other-class background,SE-CNN lr=3e-4 + random backgrounds,SE-CNN lr=3e-4,0.326700692376418,0.029058644444165165,3 of 3 seeds
+other-class background,SE-CNN lr=3e-4 + class-matched backgrounds,SE-CNN lr=3e-4,0.10825457678859286,0.11611634355593455,2 of 3 seeds
+other-class background,"ResNet18 full FT, constant lr + random backgrounds","ResNet18 full FT, constant lr",0.22472617307964934,0.044517754286958984,3 of 3 seeds
+other-class background,"ResNet18 full FT, constant lr + class-matched backgrounds","ResNet18 full FT, constant lr",0.11346962571078234,0.08938492874801811,3 of 3 seeds
+background removed,SE-CNN lr=3e-4 + random backgrounds,SE-CNN lr=3e-4,0.12001835185035244,0.03743708686259951,3 of 3 seeds
+background removed,SE-CNN lr=3e-4 + class-matched backgrounds,SE-CNN lr=3e-4,-0.06375250572321926,0.033505843189472494,0 of 3 seeds
+background removed,"ResNet18 full FT, constant lr + random backgrounds","ResNet18 full FT, constant lr",0.22709863882210127,0.07425291672140401,3 of 3 seeds
+background removed,"ResNet18 full FT, constant lr + class-matched backgrounds","ResNet18 full FT, constant lr",-0.08207375588417605,0.15018088036542676,1 of 3 seeds

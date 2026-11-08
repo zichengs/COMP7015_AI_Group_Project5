@@ -1,0 +1,4 @@
+,errors per seed,wrong in every seed,wrong at least once
+SE-CNN lr=3e-4,"7, 5, 7",1,13
+"ResNet18 full FT, constant lr","4, 6, 5",3,7
+ViT-B/16 full fine-tuning,"4, 0, 3",0,6

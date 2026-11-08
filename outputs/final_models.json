@@ -1,0 +1,5 @@
+{
+  "cnn": "SE-CNN lr=3e-4",
+  "resnet18": "ResNet18 full FT, constant lr",
+  "vit_b_16": "ViT-B/16 full fine-tuning"
+}
