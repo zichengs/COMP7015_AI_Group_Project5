@@ -1,0 +1,8 @@
+class,train,val,test,All,source folders,leaf ids
+healthy,699,152,148,999,1,250
+Early_blight,699,152,148,999,1,250
+Leaf_Mold,668,144,140,952,1,238
+Spider_mites,1172,252,252,1676,1,419
+Other_disease,704,152,144,1000,4,500
+Other_crop,720,143,145,1008,18,505
+All,4662,995,977,6634,26,2162

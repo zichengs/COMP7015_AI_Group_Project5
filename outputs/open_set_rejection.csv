@@ -1,0 +1,7 @@
+classes,model,tomato test: falsely rejected,test leaves of the new classes,held-out tomato diseases,held-out crops,"PlantDoc, seen kinds","PlantDoc, unseen kinds"
+4 classes,SE-CNN lr=3e-4 + background-removed training,0.062 ± 0.000,0.218 ± 0.000,0.287 ± 0.000,0.256 ± 0.000,0.079 ± 0.000,0.109 ± 0.000
+4 classes,"ResNet18 full FT, constant lr + background-removed training",0.065 ± 0.000,0.422 ± 0.000,0.560 ± 0.000,0.641 ± 0.000,0.213 ± 0.000,0.250 ± 0.000
+4 classes,ViT-B/16 full fine-tuning + background-removed training,0.064 ± 0.000,0.567 ± 0.000,0.560 ± 0.000,0.867 ± 0.000,0.729 ± 0.000,0.842 ± 0.000
+6 classes,SE-CNN lr=3e-4 + background-removed training + 6 classes,0.070 ± 0.000,0.872 ± 0.000,0.333 ± 0.000,0.850 ± 0.000,0.354 ± 0.000,0.335 ± 0.000
+6 classes,"ResNet18 full FT, constant lr + background-removed training + 6 classes",0.047 ± 0.000,0.972 ± 0.000,0.680 ± 0.000,0.988 ± 0.000,0.915 ± 0.000,0.914 ± 0.000
+6 classes,ViT-B/16 full fine-tuning + background-removed training + 6 classes,0.049 ± 0.000,0.997 ± 0.000,0.823 ± 0.000,0.999 ± 0.000,0.988 ± 0.000,0.985 ± 0.000

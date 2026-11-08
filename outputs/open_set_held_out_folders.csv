@@ -1,0 +1,67 @@
+model,folder,healthy,Early_blight,Leaf_Mold,Spider_mites,Other_disease,Other_crop,rejected
+SE-CNN lr=3e-4 + background-removed training,Tomato___Late_blight,0.0,0.7333333333333333,0.24666666666666667,0.02,0.0,0.0,0.25333333333333335
+SE-CNN lr=3e-4 + background-removed training,Tomato___Tomato_mosaic_virus,0.0,0.08,0.02,0.9,0.0,0.0,0.32
+SE-CNN lr=3e-4 + background-removed training,Blueberry___healthy,0.02,0.06666666666666667,0.03333333333333333,0.88,0.0,0.0,0.17333333333333334
+SE-CNN lr=3e-4 + background-removed training,Corn_(maize)___Cercospora_leaf_spot Gray_leaf_spot,0.0,0.8533333333333334,0.14666666666666667,0.0,0.0,0.0,0.10666666666666667
+SE-CNN lr=3e-4 + background-removed training,Corn_(maize)___Common_rust_,0.0,0.8333333333333334,0.16,0.006666666666666667,0.0,0.0,0.13333333333333333
+SE-CNN lr=3e-4 + background-removed training,Corn_(maize)___Northern_Leaf_Blight,0.0,0.9133333333333333,0.08666666666666667,0.0,0.0,0.0,0.06666666666666667
+SE-CNN lr=3e-4 + background-removed training,Corn_(maize)___healthy,0.006666666666666667,0.08666666666666667,0.9,0.006666666666666667,0.0,0.0,0.12
+SE-CNN lr=3e-4 + background-removed training,Orange___Haunglongbing_(Citrus_greening),0.006666666666666667,0.36666666666666664,0.5266666666666666,0.1,0.0,0.0,0.2866666666666667
+SE-CNN lr=3e-4 + background-removed training,Raspberry___healthy,0.4666666666666667,0.02,0.0,0.5133333333333333,0.0,0.0,0.4266666666666667
+SE-CNN lr=3e-4 + background-removed training,Soybean___healthy,0.0,0.5333333333333333,0.02,0.44666666666666666,0.0,0.0,0.6333333333333333
+SE-CNN lr=3e-4 + background-removed training,Squash___Powdery_mildew,0.5333333333333333,0.06666666666666667,0.3,0.1,0.0,0.0,0.36
+"ResNet18 full FT, constant lr + background-removed training",Tomato___Late_blight,0.0,0.7866666666666666,0.19333333333333333,0.02,0.0,0.0,0.5
+"ResNet18 full FT, constant lr + background-removed training",Tomato___Tomato_mosaic_virus,0.006666666666666667,0.19333333333333333,0.12,0.68,0.0,0.0,0.62
+"ResNet18 full FT, constant lr + background-removed training",Blueberry___healthy,0.44666666666666666,0.14666666666666667,0.04,0.36666666666666664,0.0,0.0,0.94
+"ResNet18 full FT, constant lr + background-removed training",Corn_(maize)___Cercospora_leaf_spot Gray_leaf_spot,0.0,0.7866666666666666,0.21333333333333335,0.0,0.0,0.0,0.5066666666666667
+"ResNet18 full FT, constant lr + background-removed training",Corn_(maize)___Common_rust_,0.0,0.9933333333333333,0.006666666666666667,0.0,0.0,0.0,0.006666666666666667
+"ResNet18 full FT, constant lr + background-removed training",Corn_(maize)___Northern_Leaf_Blight,0.0,0.8266666666666667,0.17333333333333334,0.0,0.0,0.0,0.3333333333333333
+"ResNet18 full FT, constant lr + background-removed training",Corn_(maize)___healthy,0.1,0.03333333333333333,0.8666666666666667,0.0,0.0,0.0,0.7866666666666666
+"ResNet18 full FT, constant lr + background-removed training",Orange___Haunglongbing_(Citrus_greening),0.2866666666666667,0.013333333333333334,0.31333333333333335,0.38666666666666666,0.0,0.0,0.84
+"ResNet18 full FT, constant lr + background-removed training",Raspberry___healthy,0.8933333333333333,0.07333333333333333,0.02,0.013333333333333334,0.0,0.0,0.8133333333333334
+"ResNet18 full FT, constant lr + background-removed training",Soybean___healthy,0.7066666666666667,0.013333333333333334,0.14,0.14,0.0,0.0,0.7666666666666667
+"ResNet18 full FT, constant lr + background-removed training",Squash___Powdery_mildew,0.5466666666666666,0.38,0.04666666666666667,0.02666666666666667,0.0,0.0,0.78
+ViT-B/16 full fine-tuning + background-removed training,Tomato___Late_blight,0.02,0.76,0.22,0.0,0.0,0.0,0.52
+ViT-B/16 full fine-tuning + background-removed training,Tomato___Tomato_mosaic_virus,0.0,0.006666666666666667,0.26,0.7333333333333333,0.0,0.0,0.6
+ViT-B/16 full fine-tuning + background-removed training,Blueberry___healthy,0.78,0.04,0.04,0.14,0.0,0.0,0.9333333333333333
+ViT-B/16 full fine-tuning + background-removed training,Corn_(maize)___Cercospora_leaf_spot Gray_leaf_spot,0.0,0.8333333333333334,0.16666666666666666,0.0,0.0,0.0,0.8533333333333334
+ViT-B/16 full fine-tuning + background-removed training,Corn_(maize)___Common_rust_,0.0,0.8666666666666667,0.13333333333333333,0.0,0.0,0.0,0.88
+ViT-B/16 full fine-tuning + background-removed training,Corn_(maize)___Northern_Leaf_Blight,0.0,0.8333333333333334,0.16666666666666666,0.0,0.0,0.0,0.6333333333333333
+ViT-B/16 full fine-tuning + background-removed training,Corn_(maize)___healthy,0.11333333333333333,0.7266666666666667,0.013333333333333334,0.14666666666666667,0.0,0.0,0.9333333333333333
+ViT-B/16 full fine-tuning + background-removed training,Orange___Haunglongbing_(Citrus_greening),0.04666666666666667,0.013333333333333334,0.6066666666666667,0.3333333333333333,0.0,0.0,0.9
+ViT-B/16 full fine-tuning + background-removed training,Raspberry___healthy,0.8466666666666667,0.09333333333333334,0.06,0.0,0.0,0.0,0.92
+ViT-B/16 full fine-tuning + background-removed training,Soybean___healthy,0.64,0.013333333333333334,0.013333333333333334,0.3333333333333333,0.0,0.0,0.82
+ViT-B/16 full fine-tuning + background-removed training,Squash___Powdery_mildew,0.5266666666666666,0.4,0.07333333333333333,0.0,0.0,0.0,0.9266666666666666
+SE-CNN lr=3e-4 + background-removed training + 6 classes,Tomato___Late_blight,0.0,0.4666666666666667,0.06666666666666667,0.03333333333333333,0.12666666666666668,0.30666666666666664,0.5466666666666666
+SE-CNN lr=3e-4 + background-removed training + 6 classes,Tomato___Tomato_mosaic_virus,0.0,0.0,0.02666666666666667,0.8933333333333333,0.08,0.0,0.12
+SE-CNN lr=3e-4 + background-removed training + 6 classes,Blueberry___healthy,0.0,0.0,0.0,0.22666666666666666,0.013333333333333334,0.76,0.7866666666666666
+SE-CNN lr=3e-4 + background-removed training + 6 classes,Corn_(maize)___Cercospora_leaf_spot Gray_leaf_spot,0.0,0.17333333333333334,0.16,0.0,0.08666666666666667,0.58,0.7133333333333334
+SE-CNN lr=3e-4 + background-removed training + 6 classes,Corn_(maize)___Common_rust_,0.0,0.006666666666666667,0.06666666666666667,0.0,0.0,0.9266666666666666,0.9533333333333334
+SE-CNN lr=3e-4 + background-removed training + 6 classes,Corn_(maize)___Northern_Leaf_Blight,0.0,0.04666666666666667,0.07333333333333333,0.0,0.03333333333333333,0.8466666666666667,0.8933333333333333
+SE-CNN lr=3e-4 + background-removed training + 6 classes,Corn_(maize)___healthy,0.0,0.0,0.43333333333333335,0.0,0.21333333333333335,0.35333333333333333,0.5866666666666667
+SE-CNN lr=3e-4 + background-removed training + 6 classes,Orange___Haunglongbing_(Citrus_greening),0.0,0.006666666666666667,0.02666666666666667,0.006666666666666667,0.38,0.58,0.96
+SE-CNN lr=3e-4 + background-removed training + 6 classes,Raspberry___healthy,0.1,0.0,0.0,0.16,0.04666666666666667,0.6933333333333334,0.8
+SE-CNN lr=3e-4 + background-removed training + 6 classes,Soybean___healthy,0.0,0.02,0.0,0.05333333333333334,0.32666666666666666,0.6,0.98
+SE-CNN lr=3e-4 + background-removed training + 6 classes,Squash___Powdery_mildew,0.0,0.0,0.013333333333333334,0.013333333333333334,0.08,0.8933333333333333,0.98
+"ResNet18 full FT, constant lr + background-removed training + 6 classes",Tomato___Late_blight,0.0,0.5533333333333333,0.12666666666666668,0.006666666666666667,0.22,0.09333333333333334,0.6466666666666666
+"ResNet18 full FT, constant lr + background-removed training + 6 classes",Tomato___Tomato_mosaic_virus,0.0,0.0,0.3,0.35333333333333333,0.3466666666666667,0.0,0.7133333333333334
+"ResNet18 full FT, constant lr + background-removed training + 6 classes",Blueberry___healthy,0.013333333333333334,0.0,0.0,0.013333333333333334,0.0,0.9733333333333334,1.0
+"ResNet18 full FT, constant lr + background-removed training + 6 classes",Corn_(maize)___Cercospora_leaf_spot Gray_leaf_spot,0.0,0.02666666666666667,0.02,0.0,0.08,0.8733333333333333,0.98
+"ResNet18 full FT, constant lr + background-removed training + 6 classes",Corn_(maize)___Common_rust_,0.0,0.0,0.0,0.0,0.013333333333333334,0.9866666666666667,1.0
+"ResNet18 full FT, constant lr + background-removed training + 6 classes",Corn_(maize)___Northern_Leaf_Blight,0.0,0.02,0.03333333333333333,0.0,0.12,0.8266666666666667,0.9933333333333333
+"ResNet18 full FT, constant lr + background-removed training + 6 classes",Corn_(maize)___healthy,0.0,0.0,0.09333333333333334,0.0,0.0,0.9066666666666666,1.0
+"ResNet18 full FT, constant lr + background-removed training + 6 classes",Orange___Haunglongbing_(Citrus_greening),0.0,0.0,0.10666666666666667,0.013333333333333334,0.04,0.84,0.9466666666666667
+"ResNet18 full FT, constant lr + background-removed training + 6 classes",Raspberry___healthy,0.0,0.0,0.0,0.0,0.0,1.0,1.0
+"ResNet18 full FT, constant lr + background-removed training + 6 classes",Soybean___healthy,0.0,0.0,0.0,0.02666666666666667,0.06666666666666667,0.9066666666666666,1.0
+"ResNet18 full FT, constant lr + background-removed training + 6 classes",Squash___Powdery_mildew,0.05333333333333334,0.05333333333333334,0.03333333333333333,0.0,0.16666666666666666,0.6933333333333334,0.9733333333333334
+ViT-B/16 full fine-tuning + background-removed training + 6 classes,Tomato___Late_blight,0.08,0.4666666666666667,0.08666666666666667,0.0,0.18666666666666668,0.18,0.8133333333333334
+ViT-B/16 full fine-tuning + background-removed training + 6 classes,Tomato___Tomato_mosaic_virus,0.0,0.006666666666666667,0.13333333333333333,0.4533333333333333,0.4066666666666667,0.0,0.8333333333333334
+ViT-B/16 full fine-tuning + background-removed training + 6 classes,Blueberry___healthy,0.0,0.0,0.0,0.0,0.0,1.0,1.0
+ViT-B/16 full fine-tuning + background-removed training + 6 classes,Corn_(maize)___Cercospora_leaf_spot Gray_leaf_spot,0.0,0.0,0.0,0.0,0.0,1.0,1.0
+ViT-B/16 full fine-tuning + background-removed training + 6 classes,Corn_(maize)___Common_rust_,0.0,0.0,0.0,0.0,0.0,1.0,1.0
+ViT-B/16 full fine-tuning + background-removed training + 6 classes,Corn_(maize)___Northern_Leaf_Blight,0.006666666666666667,0.0,0.0,0.0,0.0,0.9933333333333333,1.0
+ViT-B/16 full fine-tuning + background-removed training + 6 classes,Corn_(maize)___healthy,0.0,0.0,0.0,0.0,0.0,1.0,1.0
+ViT-B/16 full fine-tuning + background-removed training + 6 classes,Orange___Haunglongbing_(Citrus_greening),0.0,0.0,0.0,0.0,0.006666666666666667,0.9933333333333333,1.0
+ViT-B/16 full fine-tuning + background-removed training + 6 classes,Raspberry___healthy,0.0,0.0,0.0,0.0,0.0,1.0,1.0
+ViT-B/16 full fine-tuning + background-removed training + 6 classes,Soybean___healthy,0.0,0.0,0.0,0.0,0.0,1.0,1.0
+ViT-B/16 full fine-tuning + background-removed training + 6 classes,Squash___Powdery_mildew,0.08666666666666667,0.013333333333333334,0.0,0.0,0.013333333333333334,0.8866666666666667,0.9933333333333333

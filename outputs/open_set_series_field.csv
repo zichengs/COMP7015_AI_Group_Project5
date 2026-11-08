@@ -1,0 +1,7 @@
+model,classes,GH_HL: healthy recall,GH_HL: called a new class,PlantDoc (mismatch): macro-F1,PlantDoc (mismatch): called a new class
+SE-CNN lr=3e-4 + background-removed training,4 classes,0.305 ± 0.000,0.000 ± 0.000,0.244 ± 0.000,0.000 ± 0.000
+"ResNet18 full FT, constant lr + background-removed training",4 classes,0.936 ± 0.000,0.000 ± 0.000,0.215 ± 0.000,0.000 ± 0.000
+ViT-B/16 full fine-tuning + background-removed training,4 classes,0.893 ± 0.000,0.000 ± 0.000,0.324 ± 0.000,0.000 ± 0.000
+SE-CNN lr=3e-4 + background-removed training + 6 classes,6 classes,0.141 ± 0.000,0.664 ± 0.000,0.184 ± 0.000,0.344 ± 0.000
+"ResNet18 full FT, constant lr + background-removed training + 6 classes",6 classes,0.088 ± 0.000,0.902 ± 0.000,0.216 ± 0.000,0.410 ± 0.000
+ViT-B/16 full fine-tuning + background-removed training + 6 classes,6 classes,0.407 ± 0.000,0.593 ± 0.000,0.174 ± 0.000,0.693 ± 0.000
