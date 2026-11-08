@@ -1,3 +1,3 @@
 ,accuracy,macro-F1
-four image corners only,0.8728571428571429,0.8637934220212633
+four image corners only,0.8785714285714286,0.8649932947245302
 always the largest class (reference),0.36,0.1323529411764706

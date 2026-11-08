@@ -102,11 +102,12 @@ def measure_latency(model, batch_size, repeats=20):
 
 
 def training_cost(name):
-    # Training cost over the seeds: trainable parameters (fine-tuning stage), training time without
-    # validation (device-synchronised), and peak memory during training.
+    # Training cost over the seeds: trainable parameters (fine-tuning stage), epochs trained (early
+    # stopping), training time without validation (device-synchronised), and peak memory during training.
     histories = [load_history(name, s) for s in SEEDS]
     return {
         "trainable params": histories[0]["trainable_params"][-1],
+        "epochs trained": mean_sd([len(h["train_time"]) for h in histories], 1),
         "train time (s)": mean_sd([sum(h["train_time"]) for h in histories], 1),
         "train s/epoch": np.mean([np.mean(h["train_time"]) for h in histories]),
         "peak memory (MiB)": np.mean([h["peak_memory_mib"] for h in histories]),

@@ -18,6 +18,7 @@ BASE_CNN = {
     "scheduler": "cosine",
     "weight_decay": 1e-4,
     "epochs": CFG["epochs"]["cnn"],
+    "patience": CFG["patience"]["cnn"],
     "head_epochs": 0,
     "head_lr": None,
 }
@@ -43,6 +44,7 @@ BASE_RESNET = {
     "scheduler": "cosine",
     "weight_decay": 1e-4,
     "epochs": CFG["epochs"]["resnet18"],
+    "patience": CFG["patience"]["resnet18"],
     "head_epochs": 1,
     "head_lr": 1e-3,
 }
@@ -69,6 +71,7 @@ resnet_configs = {
 # 3 epochs train only the new head (lr 1e-3); then the head continues at 1e-4 and the unfrozen
 # backbone parameters train at 1e-5. AdamW (weight decay 0.01), constant learning rate, batch 16,
 # no class weights. The strategies differ only in which parameters are unfrozen after epoch 3.
+# Early stopping (CFG["patience"]) counts only the epochs after the head-only epochs.
 # ----------------------------------------------------------------------------
 BASE_VIT = {
     "arch": "vit_b_16",
@@ -79,6 +82,7 @@ BASE_VIT = {
     "head_lr": 1e-3,  # classifier head during the head epochs
     "head_epochs": 3,
     "epochs": CFG["epochs"]["vit_b_16"],
+    "patience": CFG["patience"]["vit_b_16"],
     "batch_size": 16,
     "weight_decay": 0.01,
     "scheduler": "constant",
@@ -93,7 +97,7 @@ vit_configs = {
     "ViT-B/16 partial, no augmentation": {**BASE_VIT, "augment": False},
 }
 ALL_CONFIGS = {**cnn_configs, **resnet_configs, **vit_configs}
-TUNING_SEED = 42
+TUNING_SEED = 62
 
 # ----------------------------------------------------------------------------
 # Derived runs: '<selected model> + <suffix>' = the selected configuration with a change

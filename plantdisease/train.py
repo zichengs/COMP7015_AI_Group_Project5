@@ -144,7 +144,10 @@ def run(name, cfg, seed, data):  # noqa: PLR0915
     keys = ["train_loss", "train_acc", "val_loss", "val_acc", "val_f1", "lr"]
     keys += ["train_time", "val_time", "epoch_time", "trainable_params"]
     history = {k: [] for k in keys}
-    best_f1 = -1.0
+    best_f1, best_epoch = -1.0, -1
+    # early stopping is only considered in the last training stage (after the head-only epochs)
+    last_stage_start = cfg["head_epochs"] if cfg["head_epochs"] < cfg["epochs"] else 0
+    patience = cfg.get("patience", 0)
 
     for epoch in range(cfg["epochs"]):
         # start of a training stage: (re)build optimizer and scheduler
@@ -213,14 +216,24 @@ def run(name, cfg, seed, data):  # noqa: PLR0915
 
         # checkpoint the best epoch (ties keep the earlier one)
         if history["val_f1"][-1] > best_f1:
-            best_f1 = history["val_f1"][-1]
+            best_f1, best_epoch = history["val_f1"][-1], epoch
             os.makedirs(run_dir, exist_ok=True)
             torch.save(model.state_dict(), os.path.join(run_dir, "best.pt"))
 
+        # early stopping: `patience` epochs of the last stage without a better validation macro-F1
+        epochs_without_gain = epoch - max(best_epoch, last_stage_start - 1)
+        if patience and epoch + 1 < cfg["epochs"] and epochs_without_gain >= patience:
+            print(f"Early stopping: no improvement for {patience} epochs")
+            break
+
+    history["stopped_early"] = len(history["val_f1"]) < cfg["epochs"]
     history["peak_memory_mib"] = memory.mib
     with open(history_file, "w") as f:
         json.dump({"config": cfg, "data": data.data_id, "history": history}, f)
-    print(f"Best val macro-F1: {best_f1:.4f} | peak memory {memory.mib:.0f} MiB")
+    print(
+        f"Best val macro-F1: {best_f1:.4f} (epoch {best_epoch + 1} of {len(history['val_f1'])})"
+        f" | peak memory {memory.mib:.0f} MiB"
+    )
     return history
 
 

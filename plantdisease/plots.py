@@ -47,6 +47,20 @@ def grouped_bars(
     ax.set_xticks(x_pos, xlabels)
 
 
+def stack_curves(histories, key):
+    # Per-epoch values of several runs as one (runs, epochs) array; NaN after a run stopped early.
+    n = max(len(h[key]) for h in histories)
+    return np.array([h[key] + [np.nan] * (n - len(h[key])) for h in histories])
+
+
+def mean_and_sd(values):
+    # Per-epoch mean and sample sd over runs, ignoring NaN (sd 0 where only one run is left).
+    n = np.sum(~np.isnan(values), 0)
+    mean = np.nanmean(values, 0)
+    sd = np.sqrt(np.nansum((values - mean) ** 2, 0) / np.maximum(n - 1, 1))
+    return mean, sd
+
+
 def finish(file_name=None):
     # tight layout, save to OUT_DIR (if a file name is given) and show.
     plt.tight_layout()

@@ -26,20 +26,25 @@
   },
   "min_series_photos": 20,
   "img_size": 224,
-  "split_seed": 42,
+  "split_seed": 62,
   "split_fractions": [
     0.7,
     0.15
   ],
   "seeds": [
-    42,
-    43,
-    44
+    62,
+    63,
+    64
   ],
   "epochs": {
     "cnn": 50,
     "resnet18": 16,
     "vit_b_16": 15
+  },
+  "patience": {
+    "cnn": 5,
+    "resnet18": 5,
+    "vit_b_16": 5
   },
   "countermeasure": {
     "swap_prob": 0.5

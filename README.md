@@ -29,12 +29,12 @@ Run the notebooks in order, from the repository root:
 | `05_robustness.ipynb` | 14–20 | robustness to background removal, grayscale, lighting, blur and noise; ViT retrained on grayscale and background-removed photos; the same leaf on other backgrounds; leaf attention; countermeasure (random backgrounds); left-out photo series and PlantDoc field photos; confidence and abstention |
 | `06_discussion.ipynb` | 21–22 | all key tables in one place, discussion |
 
-Every training run is saved under `outputs/runs/<run>__seed<seed>/`: the best checkpoint, the history (including training time and peak memory) and the configuration. Re-running a notebook loads finished runs instead of retraining them, and it reuses cached predictions. So an interrupted run can simply be resumed, and every notebook can be re-run on its own once the earlier ones have run. Notebooks 02 and 03 write the selected models to `outputs/final_models.json`.
+Every training run is saved under `outputs/runs/<run>__seed<seed>/`: the best checkpoint, the history (including training time, peak memory and whether it stopped early) and the configuration. Re-running a notebook loads finished runs instead of retraining them, and it reuses cached predictions. So an interrupted run can simply be resumed, and every notebook can be re-run on its own once the earlier ones have run. Notebooks 02 and 03 write the selected models to `outputs/final_models.json`.
 
 A GPU is recommended: the full run trains about 60 models (18 of them ViTs). For a quick end-to-end test, write to a separate output folder:
 
 ```bash
-EPOCHS_CNN=1 EPOCHS_RESNET=2 EPOCHS_VIT=4 SEEDS=42 OUT_DIR=./outputs_quick jupyter lab
+EPOCHS_CNN=1 EPOCHS_RESNET=2 EPOCHS_VIT=4 SEEDS=62 OUT_DIR=./outputs_quick jupyter lab
 ```
 
 `EPOCHS_VIT` must be at least 4, because the ViT trains only its head for the first 3 epochs.
@@ -43,9 +43,10 @@ EPOCHS_CNN=1 EPOCHS_RESNET=2 EPOCHS_VIT=4 SEEDS=42 OUT_DIR=./outputs_quick jupyt
 
 - **Data.** One photo series per class with official leaf ids (`RS_HL`, `RS_Erly.B`, `Crnl_L.Mold`, `Com.G_SpM_FL`). The official leaf ids of every class are split 70/15/15 with a fixed seed, and the audit checks that no leaf id crosses splits. The healthy series `GH_HL` has no leaf ids and is used only as a left-out series test.
 - **Preprocessing.** Every photo is resized to 224×224 once and cached. Training augmentation: flips, 90° rotations, ±10% brightness/contrast.
-- **ViT** (Zhouyang's protocol). 3 epochs train only the new head (lr 1e-3). Then the head (lr 1e-4) and the unfrozen backbone (lr 1e-5) train for 12 more epochs. AdamW with weight decay 0.01, constant learning rate, batch 16, no class weights. Three strategies: head only, partial (last 2 blocks + final LayerNorm) and full fine-tuning.
-- **Uncertainty.** Every model is trained with seeds 42, 43 and 44 on one fixed split. Results are the mean ± sample standard deviation over the seeds, and models trained with the same seeds are compared seed by seed.
-- **Compute.** Parameters, checkpoint size and inference latency; trainable parameters, training time without validation, and peak memory during training (exact on CUDA, sampled on MPS).
+- **ViT** (Zhouyang's protocol). 3 epochs train only the new head (lr 1e-3). Then the head (lr 1e-4) and the unfrozen backbone (lr 1e-5) train for up to 12 more epochs. AdamW with weight decay 0.01, constant learning rate, batch 16, no class weights. Three strategies: head only, partial (last 2 blocks + final LayerNorm) and full fine-tuning.
+- **Early stopping.** Every run stops when the validation macro-F1 has not improved for `patience` epochs of its last training stage (CNN 10, ResNet18 5, ViT 5); the checkpoint of the best epoch is kept.
+- **Uncertainty.** Every model is trained with seeds 62, 63 and 64 on one fixed split. Results are the mean ± sample standard deviation over the seeds, and models trained with the same seeds are compared seed by seed.
+- **Compute.** Parameters, checkpoint size and inference latency; trainable parameters, epochs trained, training time without validation, and peak memory during training (exact on CUDA, sampled on MPS).
 
 ## Configuration
 
@@ -57,8 +58,9 @@ All settings live in one `CFG` dictionary in `plantdisease/config.py`. The confi
 | `CACHE_DIR` | `./cache` | decoded and resized images (uint8 tensors) |
 | `OUT_DIR` | `./outputs` | runs, tables (`.csv`) and figures (`.png`) |
 | `FIELD_ROOT` | `./PlantDoc-Dataset` | PlantDoc checkout (Section 19.2) |
-| `SEEDS` | `42,43,44` | training seeds |
-| `EPOCHS_CNN`, `EPOCHS_RESNET`, `EPOCHS_VIT` | `50`, `16`, `15` | training epochs |
+| `SEEDS` | `62,63,64` | training seeds |
+| `EPOCHS_CNN`, `EPOCHS_RESNET`, `EPOCHS_VIT` | `50`, `16`, `15` | maximum training epochs |
+| `PATIENCE_CNN`, `PATIENCE_RESNET`, `PATIENCE_VIT` | `10`, `5`, `5` | early stopping: epochs without a better validation macro-F1 (0 = off) |
 | `NUM_WORKERS` | 4 on Linux, else 0 | data loader workers |
 
 Runs are deterministic: fixed seeds, deterministic algorithms, and a split seed that is separate from the training seeds.
