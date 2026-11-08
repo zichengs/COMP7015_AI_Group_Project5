@@ -116,7 +116,9 @@ COUNTERMEASURES = {
         "class_matched_background": True,
     },
 }
-DERIVED = {**INPUT_TRAINING, **COUNTERMEASURES}
+#   Notebook 07: the selected models trained with the classes 'Other disease' and 'Other crop'
+OPEN_SET = {"6 classes": {"num_classes": 6}}
+DERIVED = {**INPUT_TRAINING, **COUNTERMEASURES, **OPEN_SET}
 
 
 def input_training_names(base):
@@ -127,12 +129,17 @@ def countermeasure_names(base):
     return [f"{base} + {suffix}" for suffix in COUNTERMEASURES]
 
 
+def open_set_name(base):
+    return f"{base} + {next(iter(OPEN_SET))}"
+
+
 def config_of(name):
-    # Configuration of a run name (tuning runs, final models and derived runs).
+    # Configuration of a run name (tuning runs, final models and derived runs). Suffixes can be
+    # combined, e.g. '<model> + background-removed training + 6 classes' (notebook 07).
     for suffix, change in DERIVED.items():
         base = name.removesuffix(f" + {suffix}")
         if base != name:
-            return {**ALL_CONFIGS[base], **change}
+            return {**config_of(base), **change}
     return ALL_CONFIGS[name]
 
 

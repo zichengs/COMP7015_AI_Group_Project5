@@ -10,7 +10,7 @@ import subprocess
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass
-from functools import cached_property
+from functools import cache, cached_property
 
 import numpy as np
 import pandas as pd
@@ -21,6 +21,7 @@ from torch.utils.data import DataLoader, Dataset
 from torchvision.transforms import v2
 
 from .config import CFG, CLASSES, device, out_path
+from .leafmap import image_key, leaf_id
 
 DATA_ROOT = CFG["data_root"]
 IMAGE_SUFFIXES = (".jpg", ".jpeg", ".png")
@@ -42,6 +43,27 @@ def sparse_checkout(url, root, folders):
     return [f for f in folders if os.path.isdir(os.path.join(root, f))]
 
 
+def field_records(folders):
+    # PlantDoc photos (Section 19.2, notebook 07) of `folders` ({PlantDoc folder: label}), from the
+    # authors' train and test folders: all are test data here. Missing folders are downloaded;
+    # folders that are not complete (download failed) are skipped.
+    root = CFG["field_root"]
+    wanted = [f"{split}/{folder}" for folder in folders for split in ("train", "test")]
+    available = download_github_folders(CFG["field_photos"]["url"], root, wanted)
+    rows = []
+    for folder, label in folders.items():
+        for split in ("train", "test"):
+            if f"{split}/{folder}" not in available:
+                continue
+            folder_dir = os.path.join(root, split, folder)
+            rows += [
+                {"path": os.path.join(folder_dir, f), "label": label, "folder": folder}
+                for f in sorted(os.listdir(folder_dir))
+                if f.lower().endswith(IMAGE_SUFFIXES)
+            ]
+    return pd.DataFrame(rows, columns=["path", "label", "folder"])
+
+
 def download_github_folders(url, root, folders):
     # Download `folders` of a GitHub repository file by file over HTTPS (no git needed); returns the
     # folders that were downloaded completely. Characters that Windows does not allow in file names
@@ -58,8 +80,7 @@ def download_github_folders(url, root, folders):
                 files = [
                     e["path"]
                     for e in tree
-                    if e["type"] == "blob"
-                    and os.path.dirname(e["path"]) == folder
+                    if e["type"] == "blob" and os.path.dirname(e["path"]) == folder
                 ]
                 os.makedirs(os.path.join(root, folder), exist_ok=True)
                 print(f"Downloading {folder} ({len(files)} files)")
@@ -79,15 +100,18 @@ def download_github_folders(url, root, folders):
                             if attempt == 2:
                                 raise
                     os.replace(target + ".part", target)
-                open(os.path.join(root, folder, ".complete"), "w").close()  # noqa: SIM115
+                open(os.path.join(root, folder, ".complete"), "w").close()
         except OSError as e:
             print(f"Download from {url} stopped: {e}. Run this again to resume.")
     return [f for f, d in zip(folders, done, strict=True) if os.path.exists(d)]
 
 
-def download_plantvillage():
-    # The four tomato folders of raw/color (training images) and raw/segmented (background removed).
+def download_plantvillage(extra_folders=()):
+    # The four tomato folders of raw/color (training images) and raw/segmented (background removed),
+    # plus `extra_folders` (notebook 07). 'sparse-checkout set' replaces the folder list, so the four
+    # tomato folders are always included.
     folders = [f"raw/{kind}/{c}" for kind in ["color", "segmented"] for c in CLASSES]
+    folders += list(extra_folders)
     sparse_checkout(
         "https://github.com/spMohanty/PlantVillage-Dataset", DATA_ROOT, folders
     )
@@ -97,29 +121,6 @@ def download_plantvillage():
 # ----------------------------------------------------------------------------
 # Section 3: leaf grouping
 # ----------------------------------------------------------------------------
-SERIES_PATTERN = re.compile(
-    r"^(gh_hl|ghlb_ps|ghlb2es|ghlb2|ghlb) leaf (\d+)"
-)  # greenhouse series with leaf numbers
-
-
-def image_key(file_name):
-    # '0031da2a-...___RS_HL 0105 copy.JPG' -> 'rs_hl 0105' (same logic as the repository's plant_village.py)
-    key = file_name.split("___")[-1].split("copy")[0].strip()
-    return re.sub(r"\.(jpe?g|png)$", "", key, flags=re.IGNORECASE).strip().lower()
-
-
-def get_leaf_id(leaf_map, class_name, key):
-    # Return (leaf id, source). The leaf id is None if the image has no usable leaf information.
-    for entry in leaf_map.get(key, []):
-        if entry.split(":::")[0] == class_name:
-            return entry, "leaf map"
-    match = SERIES_PATTERN.match(key)
-    # numbers >= 1000 are photo counters, not leaf numbers
-    if match and int(match.group(2)) < 1000:
-        return f"{class_name}:::{match.group(1)} leaf {match.group(2)}", "file name"
-    return None, "excluded: no leaf information"
-
-
 def load_records():
     # All photos of the four classes -> (leaf_map, all_df, df: training series, other_df: left-out series).
     with open(os.path.join(DATA_ROOT, "leaf-map.json")) as f:
@@ -131,7 +132,7 @@ def load_records():
         for file_name in sorted(os.listdir(class_dir)):
             if file_name.lower().endswith(IMAGE_SUFFIXES):
                 key = image_key(file_name)
-                leaf_id, source = get_leaf_id(leaf_map, class_name, key)
+                leaf, source = leaf_id(leaf_map, class_name, file_name)
                 records.append(
                     {
                         "path": os.path.join(class_dir, file_name),
@@ -140,7 +141,7 @@ def load_records():
                         "class_name": class_name,
                         "key": key,
                         "series": key.split()[0],
-                        "leaf_id": leaf_id,
+                        "leaf_id": leaf,
                         "source": source,
                     }
                 )
@@ -155,7 +156,6 @@ def load_records():
     df = all_df[all_df["training_series"] & all_df["leaf_id"].notna()].reset_index(
         drop=True
     )
-    assert (df["source"] == "leaf map").all(), "training series need official leaf ids"
     # every other series of these classes is only used as the series test (Section 19.1)
     other_df = all_df[~all_df["training_series"]]
     series_size = other_df.groupby(["class_name", "series"])["path"].transform("size")
@@ -211,19 +211,24 @@ def border_brightness(gray, b=12):
 # ----------------------------------------------------------------------------
 # Section 5: leaf-group split and leakage audit
 # ----------------------------------------------------------------------------
+def split_leaves(leaves):
+    # Shuffled leaf ids -> {leaf id: 'train' / 'val' / 'test'}, 70/15/15 in this order.
+    train_frac, val_frac = CFG["split_fractions"]
+    n_train, n_val = round(train_frac * len(leaves)), round(val_frac * len(leaves))
+    return {
+        leaf: "train" if i < n_train else "val" if i < n_train + n_val else "test"
+        for i, leaf in enumerate(leaves)
+    }
+
+
 def make_split(df):
     # Split the official leaf ids of every class 70/15/15 and audit the result.
     # Adds df["split"]; returns (train_idx, val_idx, test_idx).
     rng = np.random.default_rng(CFG["split_seed"])
-    train_frac, val_frac = CFG["split_fractions"]
     split_of_leaf = {}
     for c in range(len(CLASSES)):
         leaves = rng.permutation(sorted(df.loc[df.label == c, "leaf_id"].unique()))
-        n_train, n_val = round(train_frac * len(leaves)), round(val_frac * len(leaves))
-        for i, leaf in enumerate(leaves):
-            split_of_leaf[leaf] = (
-                "train" if i < n_train else "val" if i < n_train + n_val else "test"
-            )
+        split_of_leaf |= split_leaves(leaves)
     df["split"] = df["leaf_id"].map(split_of_leaf)
 
     # Audit: every official leaf id (all photos of one leaf) lies in exactly one split
@@ -243,6 +248,18 @@ def data_fingerprint(df, train_idx):
     ).hexdigest()[:12]
 
 
+@cache
+def segmented_by_name(folder):
+    # {original photo name: segmented file} of a segmented folder, for colour photos without the
+    # UUID prefix ('RS_Rust 1563.JPG' -> '<uuid>___RS_Rust 1563_final_masked.jpg', notebook 07).
+    if not os.path.isdir(folder):
+        return {}
+    return {
+        f.split("___")[-1].removesuffix("_final_masked.jpg"): f
+        for f in os.listdir(folder)
+    }
+
+
 def segmented_path(path):
     # Segmented counterpart of a photo ('<name>_final_masked.jpg').
     # A few segmented files lack the UUID prefix ('Com.G_SpM_FL 1378_final_masked.jpg'):
@@ -253,7 +270,11 @@ def segmented_path(path):
     exact = os.path.join(folder, stem + "_final_masked.jpg")
     if os.path.exists(exact):
         return exact
-    return os.path.join(folder, stem.split("___")[-1] + "_final_masked.jpg")
+    by_name = os.path.join(folder, stem.split("___")[-1] + "_final_masked.jpg")
+    if os.path.exists(by_name) or "___" in stem:
+        return by_name
+    match = segmented_by_name(folder).get(stem)
+    return os.path.join(folder, match) if match else by_name
 
 
 def load_segmented(paths, name):
@@ -338,10 +359,9 @@ def eval_loader(images, labels=None, indices=None, batch_size=64):
 
 def class_weights(df, train_idx):
     # Class-weighted loss: w_c = N / (K * n_c) over the training photos.
-    train_counts = np.bincount(df.label[train_idx], minlength=len(CLASSES))
-    return torch.tensor(
-        len(train_idx) / (len(CLASSES) * train_counts), dtype=torch.float32
-    )
+    k = max(len(CLASSES), df.label.max() + 1)  # more than four classes in notebook 07
+    train_counts = np.bincount(df.label[train_idx], minlength=k)
+    return torch.tensor(len(train_idx) / (k * train_counts), dtype=torch.float32)
 
 
 # ----------------------------------------------------------------------------

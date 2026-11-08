@@ -14,31 +14,23 @@ import numpy as np
 import pandas as pd
 import torch
 import torch.nn.functional as F  # noqa: N812
+from sklearn.metrics import f1_score
 
-from .config import CFG, CLASSES, SEEDS, USE_AMP, device, synchronize
+from .config import CFG, SEEDS, USE_AMP, device, synchronize
 from .data import eval_tf
 from .experiments import config_of
 from .models import LAYER_OF, count_params
-from .train import fingerprint, load_history, load_model, run_path, safe_name
-
-K = len(CLASSES)
+from .train import cached_arrays, fingerprint, load_history, load_model, safe_name
 
 
 # ----------------------------------------------------------------------------
 # Metrics and seed statistics
 # ----------------------------------------------------------------------------
-def macro_f1(y_true, y_pred, labels=None, k=K):
-    # Macro-F1 from the confusion matrix (same value as sklearn's f1_score).
-    # labels=None: like sklearn, ignore classes that neither occur nor are predicted.
-    # labels given (Section 19): average over these classes; a prediction into any other class is an error.
-    cm = np.bincount(y_true * k + y_pred, minlength=k * k).reshape(k, k)
-    tp = np.diag(cm).astype(float)
-    precision = tp / np.maximum(cm.sum(0), 1)
-    recall = tp / np.maximum(cm.sum(1), 1)
-    f1 = 2 * precision * recall / np.maximum(precision + recall, 1e-12)
-    if labels is None:
-        labels = (cm.sum(0) + cm.sum(1)) > 0
-    return f1[labels].mean()
+def macro_f1(y_true, y_pred, labels=None):
+    # labels=None: the classes that occur or are predicted.
+    # labels given (Sections 19, 25-28): average over these classes; a prediction into any other
+    # class is an error.
+    return f1_score(y_true, y_pred, labels=labels, average="macro", zero_division=0)
 
 
 def sd(values):
@@ -195,20 +187,21 @@ def leaf_share_table(
     # Per-photo shares are cached in <run>/preds/ like the predictions, keyed by images and masks.
     rows = []
     mask_id = fingerprint(masks)
+    files = {
+        v: f"leafshare_{safe_name(v)}_{fingerprint(tests[v])}_{mask_id}.npy"
+        for v in variants
+    }
     for name in model_names:
         layer_of = LAYER_OF[config_of(name)["arch"]]
+        jobs = {
+            files[v]: lambda model, images=tests[v], layer_of=layer_of: leaf_attention(
+                model, layer_of(model), images, masks
+            )
+            for v in variants
+        }
+        arrays = [cached_arrays(name, seed, jobs) for seed in SEEDS]
         for variant in variants:
-            per_seed = []
-            images = tests[variant]
-            key = f"leafshare_{safe_name(variant)}_{fingerprint(images)}_{mask_id}.npy"
-            for seed in SEEDS:
-                file = os.path.join(run_path(name, seed), "preds", key)
-                if not os.path.exists(file):
-                    model = load_model(name, seed)
-                    os.makedirs(os.path.dirname(file), exist_ok=True)
-                    np.save(file, leaf_attention(model, layer_of(model), images, masks))
-                    del model
-                per_seed.append(np.nanmean(np.load(file)))
+            per_seed = [np.nanmean(a[files[variant]]) for a in arrays]
             rows.append(
                 {
                     "model": name,

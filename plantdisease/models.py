@@ -52,21 +52,21 @@ class CustomCNN(nn.Module):
 
 
 def build_model(cfg, pretrained=True):
+    # number of outputs: the four classes, or more for the open-set runs of notebook 07
+    k = cfg.get("num_classes", len(CLASSES))
     if cfg["arch"] in ("cnn", "se_cnn"):
-        return CustomCNN(
-            len(CLASSES), cfg["dropout"], attention=cfg["arch"] == "se_cnn"
-        )
+        return CustomCNN(k, cfg["dropout"], attention=cfg["arch"] == "se_cnn")
     if cfg["arch"] == "resnet18":
         model = models.resnet18(
             weights=models.ResNet18_Weights.IMAGENET1K_V1 if pretrained else None
         )
-        model.fc = nn.Linear(model.fc.in_features, len(CLASSES))
+        model.fc = nn.Linear(model.fc.in_features, k)
         return model
     if cfg["arch"] == "vit_b_16":
         model = models.vit_b_16(
             weights=models.ViT_B_16_Weights.IMAGENET1K_V1 if pretrained else None
         )
-        model.heads.head = nn.Linear(model.heads.head.in_features, len(CLASSES))
+        model.heads.head = nn.Linear(model.heads.head.in_features, k)
         return model
     raise ValueError(cfg["arch"])
 

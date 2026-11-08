@@ -262,25 +262,38 @@ def fingerprint(images):
     return hashlib.md5(images.numpy().tobytes()).hexdigest()[:10]  # noqa: S324
 
 
+def cached_arrays(name, seed, jobs):
+    # Results of one run, cached as <run>/preds/<file>: jobs = {file name: compute(model) -> array}.
+    # The model is loaded only if a file is missing; later notebooks reuse the files.
+    pred_dir = os.path.join(run_path(name, seed), "preds")
+    model, results = None, {}
+    for file, compute in jobs.items():
+        path = os.path.join(pred_dir, file)
+        if not os.path.exists(path):
+            if model is None:
+                model = load_model(name, seed)
+            os.makedirs(pred_dir, exist_ok=True)
+            np.save(path, compute(model))
+        results[file] = np.load(path)
+    return results
+
+
 def predict_probs(names, image_sets, seeds=SEEDS):
     # Softmax probabilities for every (model, seed, test set): {(name, seed, set name): (N, K) array}.
-    # They are cached in <run>/preds/, keyed by the image content, so later notebooks reuse them.
+    # They are cached in <run>/preds/, keyed by the image content.
     files = {s: f"{safe_name(s)}_{fingerprint(i)}.npy" for s, i in image_sets.items()}
+    jobs = {
+        files[s]: lambda model, images=images: predict(model, eval_loader(images))[0]
+        .softmax(1)
+        .numpy()
+        for s, images in image_sets.items()
+    }
     probs = {}
     for name in names:
         for seed in seeds:
-            model = None
-            pred_dir = os.path.join(run_path(name, seed), "preds")
-            for set_name, images in image_sets.items():
-                file = os.path.join(pred_dir, files[set_name])
-                if not os.path.exists(file):
-                    if model is None:
-                        model = load_model(name, seed)
-                    os.makedirs(pred_dir, exist_ok=True)
-                    np.save(
-                        file, predict(model, eval_loader(images))[0].softmax(1).numpy()
-                    )
-                probs[(name, seed, set_name)] = np.load(file)
+            arrays = cached_arrays(name, seed, jobs)
+            for set_name in image_sets:
+                probs[(name, seed, set_name)] = arrays[files[set_name]]
     return probs
 
 

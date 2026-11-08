@@ -11,7 +11,6 @@ os.environ.setdefault(
 )  # required for deterministic CUDA matmuls (set before importing torch)
 
 import json
-import platform
 import random
 
 import numpy as np

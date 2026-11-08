@@ -9,63 +9,22 @@ import json
 import os
 import re
 import sqlite3
+import sys
 import time
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 
 from PIL import Image
 
+# the leaf-id rules of the notebooks (plantdisease/leafmap.py, no torch import)
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from plantdisease.leafmap import EXT_PATTERN, image_key, leaf_class, leaf_id
+
 SCHEMA_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "schema.sql")
 # color first: its file names define the photo stems
 VARIANTS = ["color", "grayscale", "segmented"]
 TABLES = ["crop", "disease", "class", "leaf", "leaf_map_entry", "photo", "image"]
 SEG_SUFFIX = "_final_masked"
-EXT_PATTERN = re.compile(r"\.(jpe?g|png)$", flags=re.IGNORECASE)
-
-SERIES_PATTERN = re.compile(
-    r"^(gh_hl|ghlb_ps|ghlb2es|ghlb2|ghlb) leaf (\d+)"
-)  # greenhouse series with leaf numbers
-
-# leaf-map.json names Apple black rot after its leaf symptom (frogeye leaf spot, same fungus)
-LEAF_MAP_CLASS_ALIASES = {"Apple_Frogeye Spot": "Apple___Black_rot"}
-# Target Spot files were renamed after the leaf map was made: 'Com.G_TgS_FL 0004' -> 'com.g_fl 0004'
-LEAF_MAP_KEY_PREFIXES = {"com.g_tgs_fl ": "com.g_fl "}
-
-
-def leaf_class(entry):
-    # '<class>:::<leaf group>' -> class folder name
-    class_name = entry.split(":::")[0]
-    return LEAF_MAP_CLASS_ALIASES.get(class_name, class_name)
-
-
-def leaf_map_key(key):
-    # image key -> key used in leaf-map.json
-    for new, old in LEAF_MAP_KEY_PREFIXES.items():
-        if key.startswith(new):
-            return old + key.removeprefix(new)
-    return key
-
-
-def image_key(file_name):
-    # '0031da2a-...___RS_HL 0105 copy.JPG' -> 'rs_hl 0105' (same logic as the repository's plant_village.py)
-    key = file_name.split("___")[-1].split("copy")[0].strip()
-    return EXT_PATTERN.sub("", key).strip().lower()
-
-
-def get_leaf_id(leaf_map, class_name, stem):
-    # Return (leaf key, source), as in the notebooks. The leaf key is None if the image has no usable leaf information.
-    # The exact name is tried first: leaf-map.json has own entries for some '... copy' files, which are different photos
-    key = image_key(stem)
-    for lookup in dict.fromkeys([stem.split("___")[-1].strip().lower(), key]):
-        for entry in leaf_map.get(leaf_map_key(lookup), []):
-            if leaf_class(entry) == class_name:
-                return entry, "leaf map"
-    match = SERIES_PATTERN.match(key)
-    if (
-        match and int(match.group(2)) < 1000
-    ):  # numbers >= 1000 are photo counters, not leaf numbers
-        return f"{class_name}:::{match.group(1)} leaf {match.group(2)}", "file name"
-    return None, None
 
 
 def display(name):
@@ -216,7 +175,7 @@ def build(data_root, db_path, workers):
             photo_rows = []
             for class_name, stem in photos:
                 key = image_key(stem)
-                leaf_key, source = get_leaf_id(leaf_map, class_name, stem)
+                leaf_key, source = leaf_id(leaf_map, class_name, stem)
                 if leaf_key is not None and leaf_key not in leaf_ids:
                     leaf_ids[leaf_key] = con.execute(
                         "INSERT INTO leaf (class_id, leaf_key, source) VALUES (?, ?, ?)",

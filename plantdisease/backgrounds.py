@@ -94,6 +94,23 @@ class TestVariants:
         return {**self.variants, **self.background_tests}
 
 
+def image_changes(images):
+    # Grayscale, darker, blurred and noisy versions of uint8 photos (Section 14).
+    gen = torch.Generator().manual_seed(0)
+    return {
+        "grayscale": to_grayscale(images),
+        "darker (x0.6)": (images.float() * 0.6).round().to(torch.uint8),
+        "blur (sigma=2)": v2.functional.gaussian_blur(
+            images, kernel_size=13, sigma=2.0
+        ),
+        "noise (sigma=20)": (
+            images.float() + 20 * torch.randn(images.shape, generator=gen)
+        )
+        .clamp(0, 255)
+        .to(torch.uint8),
+    }
+
+
 def make_test_variants(data, verbose=True):
     # Section 14: original, background removed, grayscale, darker, blur and noise versions of the test leaves.
     seg_images, exists = data.segmented
@@ -104,17 +121,10 @@ def make_test_variants(data, verbose=True):
         )
     used = data.test_idx[has_seg]
     orig = data.images[used]
-
-    gen = torch.Generator().manual_seed(0)
     variants = {
         "original": orig,
         "background removed": seg_images[used],
-        "grayscale": to_grayscale(orig),
-        "darker (x0.6)": (orig.float() * 0.6).round().to(torch.uint8),
-        "blur (sigma=2)": v2.functional.gaussian_blur(orig, kernel_size=13, sigma=2.0),
-        "noise (sigma=20)": (orig.float() + 20 * torch.randn(orig.shape, generator=gen))
-        .clamp(0, 255)
-        .to(torch.uint8),
+        **image_changes(orig),
     }
     return TestVariants(variants=variants, y=data.y_test[has_seg], has_seg=has_seg)
 
