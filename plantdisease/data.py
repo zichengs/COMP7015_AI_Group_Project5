@@ -184,30 +184,6 @@ def build_cache(paths, name):
     return images
 
 
-def chunked(fn, images, chunk=512):
-    # Apply fn to a large uint8 image tensor in chunks of grayscale float images (keeps memory low).
-    return torch.cat(
-        [
-            fn(images[i : i + chunk].float().mean(1, keepdim=True))
-            for i in range(0, len(images), chunk)
-        ]
-    )
-
-
-def border_brightness(gray, b=12):
-    # Mean gray level of a 12-pixel border around each image.
-    g = gray[:, 0]
-    return torch.cat(
-        [
-            g[:, :b].flatten(1),
-            g[:, -b:].flatten(1),
-            g[:, :, :b].flatten(1),
-            g[:, :, -b:].flatten(1),
-        ],
-        1,
-    ).mean(1)
-
-
 # ----------------------------------------------------------------------------
 # Section 5: leaf-group split and leakage audit
 # ----------------------------------------------------------------------------
