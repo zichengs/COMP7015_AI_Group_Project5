@@ -1,0 +1,25 @@
+change,classes,model,out of scope: rejected,tomato: falsely rejected,AUROC
+grayscale,4 classes,SE-CNN lr=3e-4 + background-removed training,0.279 ± 0.000,0.593 ± 0.000,0.256 ± 0.000
+grayscale,4 classes,"ResNet18 full FT, constant lr + background-removed training",0.818 ± 0.000,0.798 ± 0.000,0.563 ± 0.000
+grayscale,4 classes,ViT-B/16 full fine-tuning + background-removed training,0.917 ± 0.000,0.724 ± 0.000,0.705 ± 0.000
+grayscale,6 classes,SE-CNN lr=3e-4 + background-removed training + 6 classes,0.084 ± 0.000,0.106 ± 0.000,0.376 ± 0.000
+grayscale,6 classes,"ResNet18 full FT, constant lr + background-removed training + 6 classes",0.991 ± 0.000,0.917 ± 0.000,0.862 ± 0.000
+grayscale,6 classes,ViT-B/16 full fine-tuning + background-removed training + 6 classes,0.996 ± 0.000,0.772 ± 0.000,0.935 ± 0.000
+darker (x0.6),4 classes,SE-CNN lr=3e-4 + background-removed training,0.266 ± 0.000,0.285 ± 0.000,0.482 ± 0.000
+darker (x0.6),4 classes,"ResNet18 full FT, constant lr + background-removed training",0.583 ± 0.000,0.073 ± 0.000,0.813 ± 0.000
+darker (x0.6),4 classes,ViT-B/16 full fine-tuning + background-removed training,0.810 ± 0.000,0.080 ± 0.000,0.930 ± 0.000
+darker (x0.6),6 classes,SE-CNN lr=3e-4 + background-removed training + 6 classes,0.520 ± 0.000,0.145 ± 0.000,0.718 ± 0.000
+darker (x0.6),6 classes,"ResNet18 full FT, constant lr + background-removed training + 6 classes",0.931 ± 0.000,0.047 ± 0.000,0.985 ± 0.000
+darker (x0.6),6 classes,ViT-B/16 full fine-tuning + background-removed training + 6 classes,0.968 ± 0.000,0.054 ± 0.000,0.993 ± 0.000
+blur (sigma=2),4 classes,SE-CNN lr=3e-4 + background-removed training,0.195 ± 0.000,0.195 ± 0.000,0.510 ± 0.000
+blur (sigma=2),4 classes,"ResNet18 full FT, constant lr + background-removed training",0.615 ± 0.000,0.535 ± 0.000,0.567 ± 0.000
+blur (sigma=2),4 classes,ViT-B/16 full fine-tuning + background-removed training,0.833 ± 0.000,0.594 ± 0.000,0.679 ± 0.000
+blur (sigma=2),6 classes,SE-CNN lr=3e-4 + background-removed training + 6 classes,0.936 ± 0.000,0.853 ± 0.000,0.713 ± 0.000
+blur (sigma=2),6 classes,"ResNet18 full FT, constant lr + background-removed training + 6 classes",0.953 ± 0.000,0.653 ± 0.000,0.760 ± 0.000
+blur (sigma=2),6 classes,ViT-B/16 full fine-tuning + background-removed training + 6 classes,0.971 ± 0.000,0.590 ± 0.000,0.920 ± 0.000
+noise (sigma=20),4 classes,SE-CNN lr=3e-4 + background-removed training,0.018 ± 0.000,0.000 ± 0.000,0.674 ± 0.000
+noise (sigma=20),4 classes,"ResNet18 full FT, constant lr + background-removed training",0.838 ± 0.000,0.916 ± 0.000,0.549 ± 0.000
+noise (sigma=20),4 classes,ViT-B/16 full fine-tuning + background-removed training,0.786 ± 0.000,0.215 ± 0.000,0.864 ± 0.000
+noise (sigma=20),6 classes,SE-CNN lr=3e-4 + background-removed training + 6 classes,1.000 ± 0.000,1.000 ± 0.000,0.504 ± 0.000
+noise (sigma=20),6 classes,"ResNet18 full FT, constant lr + background-removed training + 6 classes",1.000 ± 0.000,1.000 ± 0.000,0.719 ± 0.000
+noise (sigma=20),6 classes,ViT-B/16 full fine-tuning + background-removed training + 6 classes,0.971 ± 0.000,0.157 ± 0.000,0.985 ± 0.000
