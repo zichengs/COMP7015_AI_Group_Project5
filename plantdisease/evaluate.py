@@ -19,7 +19,7 @@ from .config import CFG, CLASSES, SEEDS, USE_AMP, device, synchronize
 from .data import eval_tf
 from .experiments import config_of
 from .models import LAYER_OF, count_params
-from .train import load_history, load_model
+from .train import fingerprint, load_history, load_model, run_path, safe_name
 
 K = len(CLASSES)
 
@@ -133,20 +133,24 @@ def grad_cam(model, layer, x):
     store = {}
 
     def hook(module, inputs, output):
-        store["act"] = output
-        # gradient of the score w.r.t. the feature maps
-        output.register_hook(lambda grad: store.update(grad=grad))
+        # only the layers after `layer` are recorded for the backward pass
+        store["act"] = output.detach().requires_grad_()
+        return store["act"]
 
+    trainable = [p.requires_grad for p in model.parameters()]
+    model.requires_grad_(False)
     handle = layer.register_forward_hook(hook)
-    model.zero_grad()
-    logits = model(x)
-    logits.gather(1, logits.argmax(1, keepdim=True)).sum().backward()
-    handle.remove()
-    weights = store["grad"].mean(
-        dim=(2, 3), keepdim=True
-    )  # importance of each feature map
+    try:
+        logits = model(x)
+        score = logits.gather(1, logits.argmax(1, keepdim=True)).sum()
+        grad = torch.autograd.grad(score, store["act"])[0]
+    finally:
+        handle.remove()
+        for p, t in zip(model.parameters(), trainable, strict=True):
+            p.requires_grad_(t)
+    weights = grad.mean(dim=(2, 3), keepdim=True)  # importance of each feature map
     cam = F.relu(
-        (weights * store["act"]).sum(1, keepdim=True)
+        (weights * store["act"].detach()).sum(1, keepdim=True)
     )  # weighted sum of feature maps
     cam = F.interpolate(cam, size=x.shape[-2:], mode="bilinear", align_corners=False)[
         :, 0
@@ -162,7 +166,7 @@ def grad_cam_images(name, seed, images):
         return grad_cam(model, LAYER_OF[config_of(name)["arch"]](model), x)
 
 
-def leaf_attention(model, layer, images, masks, batch_size=64):
+def leaf_attention(model, layer, images, masks, batch_size=32):
     # Share of the Grad-CAM weight that lies on the leaf, for every image.
     shares = []
     for start in range(0, len(images), batch_size):
@@ -188,15 +192,23 @@ def leaf_share_table(
     variants=("original", "background removed", "other-class background"),
 ):
     # Mean leaf share over the test photos, per model and test condition (mean ± sd over the seeds).
+    # Per-photo shares are cached in <run>/preds/ like the predictions, keyed by images and masks.
     rows = []
+    mask_id = fingerprint(masks)
     for name in model_names:
         layer_of = LAYER_OF[config_of(name)["arch"]]
         for variant in variants:
             per_seed = []
+            images = tests[variant]
+            key = f"leafshare_{safe_name(variant)}_{fingerprint(images)}_{mask_id}.npy"
             for seed in SEEDS:
-                model = load_model(name, seed)
-                shares = leaf_attention(model, layer_of(model), tests[variant], masks)
-                per_seed.append(np.nanmean(shares))
+                file = os.path.join(run_path(name, seed), "preds", key)
+                if not os.path.exists(file):
+                    model = load_model(name, seed)
+                    os.makedirs(os.path.dirname(file), exist_ok=True)
+                    np.save(file, leaf_attention(model, layer_of(model), images, masks))
+                    del model
+                per_seed.append(np.nanmean(np.load(file)))
             rows.append(
                 {
                     "model": name,

@@ -73,9 +73,10 @@ CFG = {
     "countermeasure": {  # background augmentation of Section 18
         "swap_prob": 0.5,  # share of the training photos whose background is replaced
     },
-    "num_workers": int(
-        env("NUM_WORKERS", 4 if platform.system() == "Linux" else 0)
-    ),  # notebook workers only work reliably on Linux
+    # "num_workers": int(
+    #     env("NUM_WORKERS", 4 if platform.system() == "Linux" else 0)
+    # ),  # notebook workers only work reliably on Linux
+    "num_workers": int(env("NUM_WORKERS", 2)),
 }
 CLASSES = CFG["classes"]
 # 'Tomato___Spider_mites Two-spotted_spider_mite' -> 'Spider_mites'

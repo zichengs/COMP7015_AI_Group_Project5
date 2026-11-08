@@ -7,6 +7,8 @@ import random
 import re
 import shutil
 import subprocess
+import urllib.parse
+import urllib.request
 from dataclasses import dataclass
 from functools import cached_property
 
@@ -38,6 +40,47 @@ def sparse_checkout(url, root, folders):
     if not all(os.path.isdir(os.path.join(root, f)) for f in folders):
         subprocess.run([git, "sparse-checkout", "set", *folders], cwd=root, check=False)  # noqa: S603
     return [f for f in folders if os.path.isdir(os.path.join(root, f))]
+
+
+def download_github_folders(url, root, folders):
+    # Download `folders` of a GitHub repository file by file over HTTPS (no git needed); returns the
+    # folders that contain images afterwards. Characters that Windows does not allow in file names
+    # (PlantDoc has names like '...picture-id81781575?s=612x612.jpg') are replaced by '_'.
+    repo = url.removeprefix("https://github.com/").strip("/")
+    missing = [f for f in folders if not os.path.exists(os.path.join(root, f, ".complete"))]
+    if missing:
+        try:
+            api = f"https://api.github.com/repos/{repo}/git/trees/HEAD?recursive=1"
+            with urllib.request.urlopen(api, timeout=60) as response:  # noqa: S310
+                tree = json.load(response)["tree"]
+            for folder in missing:
+                files = [
+                    e["path"]
+                    for e in tree
+                    if e["type"] == "blob"
+                    and os.path.dirname(e["path"]) == folder
+                ]
+                os.makedirs(os.path.join(root, folder), exist_ok=True)
+                print(f"Downloading {folder} ({len(files)} files)")
+                for path in files:
+                    name = re.sub(r'[<>:"/\\|?*]', "_", os.path.basename(path))
+                    target = os.path.join(root, folder, name)
+                    if os.path.exists(target):
+                        continue
+                    raw = f"https://raw.githubusercontent.com/{repo}/HEAD/{urllib.parse.quote(path)}"
+                    with urllib.request.urlopen(raw, timeout=60) as response:  # noqa: S310
+                        with open(target + ".part", "wb") as f:
+                            shutil.copyfileobj(response, f)
+                    os.replace(target + ".part", target)
+                open(os.path.join(root, folder, ".complete"), "w").close()  # noqa: SIM115
+        except OSError as e:
+            print(f"Download from {url} failed: {e}")
+    return [
+        f
+        for f in folders
+        if os.path.isdir(os.path.join(root, f))
+        and any(n.lower().endswith(IMAGE_SUFFIXES) for n in os.listdir(os.path.join(root, f)))
+    ]
 
 
 def download_plantvillage():
