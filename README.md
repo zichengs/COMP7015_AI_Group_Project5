@@ -22,11 +22,11 @@ Run the notebooks in order, from the repository root:
 
 | Notebook | Sections | Content |
 |---|---|---|
-| `01_data.ipynb` | 1–6 | configuration, download, leaf grouping, image cache, leaf-group split and leakage audit, background-only baseline, augmentation |
+| `01_data.ipynb` | 1–6 | configuration, download, leaf grouping, image cache, leaf-group split and leakage audit, augmentation |
 | `02_cnn_resnet.ipynb` | 7–9 | custom CNN and ResNet18, training engine, tuning and ablations, selection with all seeds |
 | `03_vit.ipynb` | 10 | ViT-B/16 fine-tuning strategies (head only, last two blocks, full) and augmentation ablation, selection |
 | `04_test_evaluation.ipynb` | 11–13 | test results of the final models over 3 seeds, compute trade-offs (inference and training cost), error analysis, Grad-CAM |
-| `05_robustness.ipynb` | 14–20 | robustness to background removal, grayscale, lighting, blur and noise; ViT retrained on grayscale and background-removed photos; the same leaf on other backgrounds; leaf attention; countermeasure (random backgrounds); left-out photo series and PlantDoc field photos; confidence and abstention |
+| `05_robustness.ipynb` | 14–20 | background-only baseline (what four image corners reveal); robustness to background removal, grayscale, lighting, blur and noise; ViT retrained on grayscale and background-removed photos; the same leaf on other backgrounds; leaf attention; countermeasure (random backgrounds); left-out photo series and PlantDoc field photos; confidence and abstention |
 | `06_discussion.ipynb` | 21–22 | all key tables in one place, discussion |
 
 Every training run is saved under `outputs/runs/<run>__seed<seed>/`: the best checkpoint, the history (including training time, peak memory and whether it stopped early) and the configuration. Re-running a notebook loads finished runs instead of retraining them, and it reuses cached predictions. So an interrupted run can simply be resumed, and every notebook can be re-run on its own once the earlier ones have run. Notebooks 02 and 03 write the selected models to `outputs/final_models.json`.
