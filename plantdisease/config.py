@@ -17,7 +17,9 @@ env = os.environ.get
 _out_dir = env("OUT_DIR", "./outputs")
 
 PATHS_CONFIG: dict[str, str] = {
-    "data_root": env("DATA_ROOT", "./PlantVillage-Dataset"),  # where the dataset is cloned
+    "data_root": env(
+        "DATA_ROOT", "./PlantVillage-Dataset"
+    ),  # where the dataset is cloned
     "cache_dir": env("CACHE_DIR", "./cache"),  # decoded + resized images
     "out_dir": _out_dir,  # figures, tables, checkpoints
     "runs_dir": os.path.join(_out_dir, "runs"),  # one folder per trained run
@@ -41,7 +43,10 @@ DATA_CONFIG: dict[str, Any] = {
     "min_series_photos": 20,
     "img_size": 224,  # ViT-B/16 requires 224
     "split_seed": 62,  # seed of the train/val/test split
-    "split_fractions": (0.70, 0.15),  # train, val (test = rest), applied to official leaf ids
+    "split_fractions": (
+        0.70,
+        0.15,
+    ),  # train, val (test = rest), applied to official leaf ids
     "num_workers": int(env("NUM_WORKERS", 2)),  # data loader workers
 }
 
@@ -59,7 +64,9 @@ PLANTDOC_CONFIG: dict[str, Any] = {
 }
 
 TRAIN_CONFIG: dict[str, Any] = {
-    "seeds": [int(s) for s in env("SEEDS", "62,63,64").split(",")],  # training seeds of the final models
+    "seeds": [
+        int(s) for s in env("SEEDS", "62,63,64").split(",")
+    ],  # training seeds of the final models
     # background swap of Section 18: share of the training photos whose background is replaced
     "swap_prob": 0.5,
 }

@@ -14,7 +14,7 @@ Without uv: `pip install torch torchvision torchinfo scikit-learn scipy pandas m
 
 The code runs on an NVIDIA GPU (CUDA, with mixed precision), on Apple silicon (MPS) and on the CPU; the device is chosen automatically.
 
-The dataset is downloaded by the first notebook: a sparse git checkout of the four tomato folders of `raw/color` and `raw/segmented`, plus `leaf-map.json`. Section 19.2 also downloads the matching folders of [PlantDoc](https://github.com/pratikkayal/PlantDoc-Dataset). It is skipped if the download fails.
+The dataset is downloaded by the first notebook: `git clone --depth 1` of the whole PlantVillage repository (about 2 GB, latest files only; git is required). If `PlantVillage-Dataset/raw/color` already exists, the download is skipped. Section 19.2 also downloads the matching folders of [PlantDoc](https://github.com/pratikkayal/PlantDoc-Dataset). It is skipped if the download fails.
 
 ## Running
 
@@ -80,7 +80,7 @@ The notebooks show the steps and the results. The shared code is in the `plantdi
 |---|---|
 | `config.py` | settings (`PATHS_CONFIG`, `DATA_CONFIG`, `PLANTDOC_CONFIG`, `TRAIN_CONFIG`) |
 | `device.py` | device, mixed precision, determinism, `set_seed`, `synchronize` |
-| `data/download.py` | PlantVillage (git sparse checkout) and PlantDoc (file by file) downloads |
+| `data/download.py` | PlantVillage (`git clone --depth 1`) and PlantDoc (file by file) downloads |
 | `data/leafmap.py` | leaf ids from `leaf-map.json` (no torch; also used by `database/build_db.py`) |
 | `data/records.py` | photo table, series, leaf-group split with leakage audit, data fingerprint |
 | `data/images.py` | image cache (decode and resize once), segmented and grayscale versions |

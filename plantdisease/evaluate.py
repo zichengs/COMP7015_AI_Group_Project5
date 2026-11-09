@@ -62,7 +62,12 @@ def seed_scores(
 ) -> dict[str, np.ndarray]:
     # Macro-F1 of every seed: {model: array over the seeds}. preds: {(model, seed, set name): predicted classes}.
     return {
-        name: np.array([macro_f1(y, preds[(name, s, set_name)], labels) for s in TRAIN_CONFIG["seeds"]])
+        name: np.array(
+            [
+                macro_f1(y, preds[(name, s, set_name)], labels)
+                for s in TRAIN_CONFIG["seeds"]
+            ]
+        )
         for name in names
     }
 
@@ -96,7 +101,9 @@ def stable_errors(
 # ----------------------------------------------------------------------------
 def measure_latency(model: nn.Module, batch_size: int, repeats: int = 20) -> float:
     # Inference time in ms per image on the current device, after a warm-up.
-    x = torch.randn(batch_size, 3, DATA_CONFIG["img_size"], DATA_CONFIG["img_size"], device=device)
+    x = torch.randn(
+        batch_size, 3, DATA_CONFIG["img_size"], DATA_CONFIG["img_size"], device=device
+    )
     with (
         torch.no_grad(),
         torch.autocast(device.type, dtype=torch.float16, enabled=USE_AMP),
@@ -305,7 +312,12 @@ def per_class_recall(
     # Recall of every class, mean over the seeds -> {model: [recall per class]}.
     return {
         name: [
-            np.mean([(preds[(name, s, set_name)][y == c] == c).mean() for s in TRAIN_CONFIG["seeds"]])
+            np.mean(
+                [
+                    (preds[(name, s, set_name)][y == c] == c).mean()
+                    for s in TRAIN_CONFIG["seeds"]
+                ]
+            )
             for c in classes
         ]
         for name in models

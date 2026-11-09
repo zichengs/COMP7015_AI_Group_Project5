@@ -1,4 +1,4 @@
-"""Downloads: PlantVillage (git sparse checkout) and PlantDoc (file by file over HTTPS)."""
+"""Downloads: PlantVillage (git clone) and PlantDoc (file by file over HTTPS)."""
 
 import json
 import os
@@ -10,39 +10,27 @@ import urllib.request
 
 import pandas as pd
 
-from ..config import DATA_CONFIG, PATHS_CONFIG, PLANTDOC_CONFIG
+from ..config import PATHS_CONFIG, PLANTDOC_CONFIG
 from .leafmap import IMAGE_SUFFIXES
+
+PLANTVILLAGE_URL = "https://github.com/spMohanty/PlantVillage-Dataset"
 
 
 # ----------------------------------------------------------------------------
 # Section 2: PlantVillage
 # ----------------------------------------------------------------------------
-def sparse_checkout(url: str, root: str, folders: list[str]) -> list[str]:
-    # Clone only `folders` of a git repository (sparse checkout); returns the folders that exist afterwards.
+def download_plantvillage() -> None:
+    # Download the whole PlantVillage repository (about 2 GB) with `git clone --depth 1`: only the
+    # latest files, not the history. Skipped if the folder already contains the photos.
+    root = PATHS_CONFIG["data_root"]
+    if os.path.isdir(os.path.join(root, "raw", "color")):
+        return
     git = shutil.which("git")
-    if not os.path.exists(root):
-        subprocess.run(  # noqa: S603
-            [git, "clone", "--depth", "1", "--filter=blob:none", "--sparse", url, root],
-            check=False,
+    if git is None:
+        raise RuntimeError(
+            f"git is needed to download the dataset from {PLANTVILLAGE_URL}"
         )
-    if not all(os.path.isdir(os.path.join(root, f)) for f in folders):
-        subprocess.run([git, "sparse-checkout", "set", *folders], cwd=root, check=False)  # noqa: S603
-    return [f for f in folders if os.path.isdir(os.path.join(root, f))]
-
-
-def download_plantvillage() -> list[str]:
-    # The four tomato folders of raw/color (training images) and raw/segmented (background removed).
-    folders = [
-        f"raw/{kind}/{c}"
-        for kind in ["color", "segmented"]
-        for c in DATA_CONFIG["classes"]
-    ]
-    sparse_checkout(
-        "https://github.com/spMohanty/PlantVillage-Dataset",
-        PATHS_CONFIG["data_root"],
-        folders,
-    )
-    return folders
+    subprocess.run([git, "clone", "--depth", "1", PLANTVILLAGE_URL, root], check=True)  # noqa: S603
 
 
 # ----------------------------------------------------------------------------

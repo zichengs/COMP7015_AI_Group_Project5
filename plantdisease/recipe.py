@@ -10,7 +10,9 @@ class RunConfig(BaseModel):
     # fails when the recipe is built. A recipe is immutable: `variant` makes a changed copy.
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    arch: Literal["cnn", "se_cnn", "resnet18", "vit_b_16"]  # "se_cnn": custom CNN with SE attention
+    arch: Literal[
+        "cnn", "se_cnn", "resnet18", "vit_b_16"
+    ]  # "se_cnn": custom CNN with SE attention
     lr: float  # learning rate of the whole network (ViT: of the unfrozen backbone parameters)
     batch_size: int
     dropout: float = 0.0  # before the classifier (custom CNN only)
@@ -24,14 +26,24 @@ class RunConfig(BaseModel):
     # pre-trained models: head-only epochs first, then fine-tuning
     head_epochs: int = 0
     head_lr: float | None = None  # classifier head during the head-only epochs
-    finetune_head_lr: float | None = None  # classifier head after them (None: same as `lr`)
-    finetune: Literal["head", "partial", "full"] = "full"  # what is unfrozen after the head epochs
-    trainable_blocks: int | None = None  # finetune="partial": number of last ViT encoder blocks
+    finetune_head_lr: float | None = (
+        None  # classifier head after them (None: same as `lr`)
+    )
+    finetune: Literal["head", "partial", "full"] = (
+        "full"  # what is unfrozen after the head epochs
+    )
+    trainable_blocks: int | None = (
+        None  # finetune="partial": number of last ViT encoder blocks
+    )
 
     # derived runs (Sections 15 and 18)
     input: Literal["color", "grayscale", "segmented"] = "color"
-    background_swap: float = 0.0  # share of the training photos with a random background
-    class_matched_background: bool = False  # control: the background comes from the same class
+    background_swap: float = (
+        0.0  # share of the training photos with a random background
+    )
+    class_matched_background: bool = (
+        False  # control: the background comes from the same class
+    )
 
     @model_validator(mode="after")
     def check_consistency(self) -> Self:
