@@ -10,7 +10,7 @@ source .venv/bin/activate
 jupyter lab
 ```
 
-Without uv: `pip install torch torchvision scikit-learn scipy pandas matplotlib jupyter`.
+Without uv: `pip install torch torchvision torchinfo scikit-learn scipy pandas matplotlib jupyter`.
 
 The code runs on an NVIDIA GPU (CUDA, with mixed precision), on Apple silicon (MPS) and on the CPU; the device is chosen automatically.
 
