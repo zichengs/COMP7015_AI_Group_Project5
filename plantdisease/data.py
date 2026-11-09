@@ -21,10 +21,10 @@ from torch import nn
 from torch.utils.data import DataLoader, Dataset
 from torchvision.transforms import v2
 
-from .config import CFG, CLASSES, device, out_path
+from .config import CLASSES, DATA, PATHS, device, out_path
 from .leafmap import image_key, leaf_id
 
-DATA_ROOT = CFG["data_root"]
+DATA_ROOT = PATHS.data_root
 IMAGE_SUFFIXES = (".jpg", ".jpeg", ".png")
 
 
@@ -48,9 +48,9 @@ def field_records(folders: dict[str, int]) -> pd.DataFrame:
     # PlantDoc photos (Section 19.2, notebook 07) of `folders` ({PlantDoc folder: label}), from the
     # authors' train and test folders: all are test data here. Missing folders are downloaded;
     # folders that are not complete (download failed) are skipped.
-    root = CFG["field_root"]
+    root = PATHS.field_root
     wanted = [f"{split}/{folder}" for folder in folders for split in ("train", "test")]
-    available = download_github_folders(CFG["field_photos"]["url"], root, wanted)
+    available = download_github_folders(DATA.field_url, root, wanted)
     rows = []
     for folder, label in folders.items():
         for split in ("train", "test"):
@@ -150,7 +150,7 @@ def load_records() -> tuple[
                 )
     all_df = pd.DataFrame(records)
     all_df["training_series"] = all_df["series"] == all_df["class_name"].map(
-        CFG["train_series"]
+        DATA.train_series
     )
     all_df[all_df["leaf_id"].isna() & all_df["training_series"]].to_csv(
         out_path("excluded_images.csv"), index=False
@@ -162,21 +162,21 @@ def load_records() -> tuple[
     # every other series of these classes is only used as the series test (Section 19.1)
     other_df = all_df[~all_df["training_series"]]
     series_size = other_df.groupby(["class_name", "series"])["path"].transform("size")
-    other_df = other_df[series_size >= CFG["min_series_photos"]].reset_index(drop=True)
+    other_df = other_df[series_size >= DATA.min_series_photos].reset_index(drop=True)
     return leaf_map, all_df, df, other_df
 
 
 # ----------------------------------------------------------------------------
 # Section 4: image cache and background brightness
 # ----------------------------------------------------------------------------
-def load_resized(path: str, size: int = CFG["img_size"]) -> torch.Tensor:
+def load_resized(path: str, size: int = DATA.img_size) -> torch.Tensor:
     img = Image.open(path).convert("RGB").resize((size, size), Image.BILINEAR)
     return torch.from_numpy(np.asarray(img).copy()).permute(2, 0, 1)  # (3, H, W) uint8
 
 
 def build_cache(paths: Iterable[str], name: str) -> torch.Tensor:
     # Decode + resize all images once and store them as a uint8 tensor (N, 3, H, W).
-    file = os.path.join(CFG["cache_dir"], f"{name}_{CFG['img_size']}.pt")
+    file = os.path.join(PATHS.cache_dir, f"{name}_{DATA.img_size}.pt")
     paths = list(paths)
     if os.path.exists(file):
         cache = torch.load(file)
@@ -192,7 +192,7 @@ def build_cache(paths: Iterable[str], name: str) -> torch.Tensor:
 # ----------------------------------------------------------------------------
 def split_leaves(leaves: Collection[str]) -> dict[str, str]:
     # Shuffled leaf ids -> {leaf id: 'train' / 'val' / 'test'}, 70/15/15 in this order.
-    train_frac, val_frac = CFG["split_fractions"]
+    train_frac, val_frac = DATA.split_fractions
     n_train, n_val = round(train_frac * len(leaves)), round(val_frac * len(leaves))
     return {
         leaf: "train" if i < n_train else "val" if i < n_train + n_val else "test"
@@ -203,7 +203,7 @@ def split_leaves(leaves: Collection[str]) -> dict[str, str]:
 def make_split(df: pd.DataFrame) -> tuple[np.ndarray, ...]:
     # Split the official leaf ids of every class 70/15/15 and audit the result.
     # Adds df["split"]; returns (train_idx, val_idx, test_idx).
-    rng = np.random.default_rng(CFG["split_seed"])
+    rng = np.random.default_rng(DATA.split_seed)
     split_of_leaf = {}
     for c in range(len(CLASSES)):
         leaves = rng.permutation(sorted(df.loc[df.label == c, "leaf_id"].unique()))
@@ -221,8 +221,8 @@ def data_fingerprint(df: pd.DataFrame, train_idx: np.ndarray) -> str:
     return hashlib.md5(  # noqa: S324
         (
             "|".join(df.loc[train_idx, "path"].map(os.path.basename))
-            + json.dumps(CFG["train_series"], sort_keys=True)
-            + str(CFG["split_seed"])
+            + json.dumps(DATA.train_series, sort_keys=True)
+            + str(DATA.split_seed)
         ).encode()
     ).hexdigest()[:12]
 
@@ -328,10 +328,10 @@ def make_loader(
         dataset,
         batch_size=batch_size,
         shuffle=seed is not None,
-        num_workers=CFG["num_workers"],
+        num_workers=DATA.num_workers,
         generator=torch.Generator().manual_seed(seed) if seed is not None else None,
         pin_memory=device.type == "cuda",
-        persistent_workers=CFG["num_workers"] > 0,
+        persistent_workers=DATA.num_workers > 0,
     )
 
 

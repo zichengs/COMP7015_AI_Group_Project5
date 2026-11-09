@@ -2,7 +2,7 @@
 
 Shared code of the notebooks 01-05:
 
-- ``config``      CFG dictionary, seeds, device
+- ``config``      settings (PATHS, DATA, TRAIN), seeds, device
 - ``data``        download, leaf grouping, image cache, near-duplicates, split, loaders
 - ``backgrounds`` leaf masks, test variants, same-leaf background tests, background swap
 - ``models``      custom CNN with SE attention, ResNet18, ViT-B/16

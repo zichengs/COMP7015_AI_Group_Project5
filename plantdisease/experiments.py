@@ -4,7 +4,7 @@ import json
 import os
 from typing import Any
 
-from .config import CFG, out_path
+from .config import TRAIN, out_path
 
 # ----------------------------------------------------------------------------
 # Section 9: custom CNN and ResNet18
@@ -18,8 +18,8 @@ BASE_CNN = {
     "class_weights": True,
     "scheduler": "cosine",
     "weight_decay": 1e-4,
-    "epochs": CFG["epochs"]["cnn"],
-    "patience": CFG["patience"]["cnn"],
+    "epochs": TRAIN.epochs["cnn"],
+    "patience": TRAIN.patience["cnn"],
     "head_epochs": 0,
     "head_lr": None,
 }
@@ -44,8 +44,8 @@ BASE_RESNET = {
     "class_weights": True,
     "scheduler": "cosine",
     "weight_decay": 1e-4,
-    "epochs": CFG["epochs"]["resnet18"],
-    "patience": CFG["patience"]["resnet18"],
+    "epochs": TRAIN.epochs["resnet18"],
+    "patience": TRAIN.patience["resnet18"],
     "head_epochs": 1,
     "head_lr": 1e-3,
 }
@@ -72,7 +72,7 @@ resnet_configs = {
 # 3 epochs train only the new head (lr 1e-3); then the head continues at 1e-4 and the unfrozen
 # backbone parameters train at 1e-5. AdamW (weight decay 0.01), constant learning rate, batch 16,
 # no class weights. The strategies differ only in which parameters are unfrozen after epoch 3.
-# Early stopping (CFG["patience"]) counts only the epochs after the head-only epochs.
+# Early stopping (TRAIN.patience) counts only the epochs after the head-only epochs.
 # ----------------------------------------------------------------------------
 BASE_VIT = {
     "arch": "vit_b_16",
@@ -82,8 +82,8 @@ BASE_VIT = {
     "finetune_head_lr": 1e-4,  # classifier head after the head epochs
     "head_lr": 1e-3,  # classifier head during the head epochs
     "head_epochs": 3,
-    "epochs": CFG["epochs"]["vit_b_16"],
-    "patience": CFG["patience"]["vit_b_16"],
+    "epochs": TRAIN.epochs["vit_b_16"],
+    "patience": TRAIN.patience["vit_b_16"],
     "batch_size": 16,
     "weight_decay": 0.01,
     "scheduler": "constant",
@@ -111,9 +111,9 @@ INPUT_TRAINING = {
     "background-removed training": {"input": "segmented"},
 }
 COUNTERMEASURES = {
-    "random backgrounds": {"background_swap": CFG["countermeasure"]["swap_prob"]},
+    "random backgrounds": {"background_swap": TRAIN.swap_prob},
     "class-matched backgrounds": {
-        "background_swap": CFG["countermeasure"]["swap_prob"],
+        "background_swap": TRAIN.swap_prob,
         "class_matched_background": True,
     },
 }

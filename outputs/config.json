@@ -1,53 +1,55 @@
 {
-  "data_root": "./PlantVillage-Dataset",
-  "cache_dir": "./cache",
-  "out_dir": "./outputs",
-  "classes": [
-    "Tomato___healthy",
-    "Tomato___Early_blight",
-    "Tomato___Leaf_Mold",
-    "Tomato___Spider_mites Two-spotted_spider_mite"
-  ],
-  "train_series": {
-    "Tomato___healthy": "rs_hl",
-    "Tomato___Early_blight": "rs_erly.b",
-    "Tomato___Leaf_Mold": "crnl_l.mold",
-    "Tomato___Spider_mites Two-spotted_spider_mite": "com.g_spm_fl"
+  "paths": {
+    "data_root": "./PlantVillage-Dataset",
+    "cache_dir": "./cache",
+    "out_dir": "./outputs",
+    "field_root": "./PlantDoc-Dataset"
   },
-  "field_root": "./PlantDoc-Dataset",
-  "field_photos": {
-    "url": "https://github.com/pratikkayal/PlantDoc-Dataset",
-    "folders": {
+  "data": {
+    "classes": [
+      "Tomato___healthy",
+      "Tomato___Early_blight",
+      "Tomato___Leaf_Mold",
+      "Tomato___Spider_mites Two-spotted_spider_mite"
+    ],
+    "train_series": {
+      "Tomato___healthy": "rs_hl",
+      "Tomato___Early_blight": "rs_erly.b",
+      "Tomato___Leaf_Mold": "crnl_l.mold",
+      "Tomato___Spider_mites Two-spotted_spider_mite": "com.g_spm_fl"
+    },
+    "field_url": "https://github.com/pratikkayal/PlantDoc-Dataset",
+    "field_folders": {
       "Tomato___healthy": "Tomato leaf",
       "Tomato___Early_blight": "Tomato Early blight leaf",
       "Tomato___Leaf_Mold": "Tomato mold leaf",
       "Tomato___Spider_mites Two-spotted_spider_mite": "Tomato two spotted spider mites leaf"
-    }
+    },
+    "min_series_photos": 20,
+    "img_size": 224,
+    "split_seed": 62,
+    "split_fractions": [
+      0.7,
+      0.15
+    ],
+    "num_workers": 2
   },
-  "min_series_photos": 20,
-  "img_size": 224,
-  "split_seed": 62,
-  "split_fractions": [
-    0.7,
-    0.15
-  ],
-  "seeds": [
-    62,
-    63,
-    64
-  ],
-  "epochs": {
-    "cnn": 50,
-    "resnet18": 16,
-    "vit_b_16": 15
-  },
-  "patience": {
-    "cnn": 5,
-    "resnet18": 5,
-    "vit_b_16": 5
-  },
-  "countermeasure": {
+  "train": {
+    "seeds": [
+      62,
+      63,
+      64
+    ],
+    "epochs": {
+      "cnn": 50,
+      "resnet18": 16,
+      "vit_b_16": 15
+    },
+    "patience": {
+      "cnn": 5,
+      "resnet18": 5,
+      "vit_b_16": 5
+    },
     "swap_prob": 0.5
-  },
-  "num_workers": 2
+  }
 }

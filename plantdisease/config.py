@@ -1,7 +1,9 @@
 """Configuration, seeds and device (Section 1).
 
-All settings live in one ``CFG`` dictionary. Paths, epochs and seeds can be overridden with
-environment variables, e.g. ``EPOCHS_CNN=1 SEEDS=62`` for a quick test.
+The settings are split into three groups: ``PATHS`` (where data and results live), ``DATA`` (the
+dataset protocol) and ``TRAIN`` (seeds, epochs, early stopping). The model recipes are in
+``experiments.py``. Paths, epochs and seeds can be overridden with environment variables, e.g.
+``EPOCHS_CNN=1 SEEDS=62`` for a quick test.
 """
 
 import os
@@ -12,80 +14,116 @@ os.environ.setdefault(
 
 import json
 import random
+from dataclasses import asdict, dataclass
+from typing import Any
 
 import numpy as np
 import torch
 
 env = os.environ.get
-CFG = {
-    "data_root": env(
-        "DATA_ROOT", "./PlantVillage-Dataset"
-    ),  # where the dataset is cloned
-    "cache_dir": env("CACHE_DIR", "./cache"),  # decoded + resized images
-    "out_dir": env("OUT_DIR", "./outputs"),  # figures, tables, checkpoints
-    "classes": [
+
+
+@dataclass(frozen=True)
+class Paths:
+    data_root: str  # where the dataset is cloned
+    cache_dir: str  # decoded + resized images
+    out_dir: str  # figures, tables, checkpoints
+    field_root: str  # field photos (Section 19.2)
+
+    @property
+    def runs_dir(self) -> str:
+        return os.path.join(self.out_dir, "runs")
+
+
+@dataclass(frozen=True)
+class DataConfig:
+    classes: list[str]
+    # one photo series per class, with official leaf ids (Section 3)
+    train_series: dict[str, str]
+    field_url: str  # PlantDoc repository (cropped version)
+    field_folders: dict[str, str]  # PlantDoc folder that matches each class
+    # a left-out series needs at least this many photos (stray single files are not a series)
+    min_series_photos: int
+    img_size: int  # ViT-B/16 requires 224
+    split_seed: int  # seed of the train/val/test split
+    # train, val (test = rest), applied to official leaf ids
+    split_fractions: tuple[float, float]
+    num_workers: int  # data loader workers
+
+
+@dataclass(frozen=True)
+class TrainConfig:
+    seeds: list[int]  # training seeds of the final models
+    epochs: dict[str, int]  # maximum epochs per architecture
+    # early stopping: stop after this many epochs without a better validation macro-F1
+    # (counted from the start of the last training stage; 0 = train all epochs)
+    patience: dict[str, int]
+    # background swap of Section 18: share of the training photos whose background is replaced
+    swap_prob: float
+
+
+PATHS = Paths(
+    data_root=env("DATA_ROOT", "./PlantVillage-Dataset"),
+    cache_dir=env("CACHE_DIR", "./cache"),
+    out_dir=env("OUT_DIR", "./outputs"),
+    field_root=env("FIELD_ROOT", "./PlantDoc-Dataset"),
+)
+DATA = DataConfig(
+    classes=[
         "Tomato___healthy",
         "Tomato___Early_blight",
         "Tomato___Leaf_Mold",
         "Tomato___Spider_mites Two-spotted_spider_mite",
     ],
-    "train_series": {  # one photo series per class, with official leaf ids (Section 3)
+    train_series={
         "Tomato___healthy": "rs_hl",
         "Tomato___Early_blight": "rs_erly.b",
         "Tomato___Leaf_Mold": "crnl_l.mold",
         "Tomato___Spider_mites Two-spotted_spider_mite": "com.g_spm_fl",
     },
-    "field_root": env(
-        "FIELD_ROOT", "./PlantDoc-Dataset"
-    ),  # field photos (Section 19.2)
-    "field_photos": {  # PlantDoc (cropped version) folders that match our classes
-        "url": "https://github.com/pratikkayal/PlantDoc-Dataset",
-        "folders": {
-            "Tomato___healthy": "Tomato leaf",
-            "Tomato___Early_blight": "Tomato Early blight leaf",
-            "Tomato___Leaf_Mold": "Tomato mold leaf",
-            "Tomato___Spider_mites Two-spotted_spider_mite": "Tomato two spotted spider mites leaf",
-        },
+    field_url="https://github.com/pratikkayal/PlantDoc-Dataset",
+    field_folders={
+        "Tomato___healthy": "Tomato leaf",
+        "Tomato___Early_blight": "Tomato Early blight leaf",
+        "Tomato___Leaf_Mold": "Tomato mold leaf",
+        "Tomato___Spider_mites Two-spotted_spider_mite": "Tomato two spotted spider mites leaf",
     },
-    "min_series_photos": 20,  # a left-out series needs at least this many photos (stray single files are not a series)
-    "img_size": 224,  # ViT-B/16 requires 224
-    "split_seed": 62,  # seed of the train/val/test split
-    "split_fractions": (
-        0.70,
-        0.15,
-    ),  # train, val (test = rest), applied to official leaf ids
-    "seeds": [
-        int(s) for s in env("SEEDS", "62,63,64").split(",")
-    ],  # training seeds of the final models
-    "epochs": {
+    min_series_photos=20,
+    img_size=224,
+    split_seed=62,
+    split_fractions=(0.70, 0.15),
+    num_workers=int(env("NUM_WORKERS", 2)),
+)
+TRAIN = TrainConfig(
+    seeds=[int(s) for s in env("SEEDS", "62,63,64").split(",")],
+    epochs={
         "cnn": int(env("EPOCHS_CNN", 50)),
         "resnet18": int(env("EPOCHS_RESNET", 16)),
         "vit_b_16": int(env("EPOCHS_VIT", 15)),
     },
-    # early stopping: stop after this many epochs without a better validation macro-F1
-    # (counted from the start of the last training stage; 0 = train all epochs)
-    "patience": {
+    patience={
         "cnn": int(env("PATIENCE_CNN", 5)),
         "resnet18": int(env("PATIENCE_RESNET", 5)),
         "vit_b_16": int(env("PATIENCE_VIT", 5)),
     },
-    "countermeasure": {  # background augmentation of Section 18
-        "swap_prob": 0.5,  # share of the training photos whose background is replaced
-    },
-    # "num_workers": int(
-    #     env("NUM_WORKERS", 4 if platform.system() == "Linux" else 0)
-    # ),  # notebook workers only work reliably on Linux
-    "num_workers": int(env("NUM_WORKERS", 2)),
-}
-CLASSES = CFG["classes"]
+    swap_prob=0.5,
+)
+
+
+def config_dict() -> dict[str, dict[str, Any]]:
+    # All settings, one section per group (saved to OUT_DIR/config.json).
+    return {"paths": asdict(PATHS), "data": asdict(DATA), "train": asdict(TRAIN)}
+
+
+CLASSES = DATA.classes
 # 'Tomato___Spider_mites Two-spotted_spider_mite' -> 'Spider_mites'
 SHORT_NAMES = [c.split("___")[1].split()[0] for c in CLASSES]
-SEEDS = CFG["seeds"]
-OUT_DIR, RUNS_DIR = CFG["out_dir"], os.path.join(CFG["out_dir"], "runs")
-for d in [CFG["cache_dir"], OUT_DIR, RUNS_DIR]:
+SEEDS = TRAIN.seeds
+OUT_DIR, RUNS_DIR = PATHS.out_dir, PATHS.runs_dir
+for d in [PATHS.cache_dir, OUT_DIR, RUNS_DIR]:
     os.makedirs(d, exist_ok=True)
 with open(os.path.join(OUT_DIR, "config.json"), "w") as f:
-    json.dump(CFG, f, indent=2)
+    json.dump(config_dict(), f, indent=2)
 
 
 def set_seed(seed: int) -> None:

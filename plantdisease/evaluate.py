@@ -1,6 +1,6 @@
 """Metrics, seed statistics, compute, Grad-CAM and other evaluation tools (Sections 9-20).
 
-Uncertainty follows Zhouyang's protocol: every model is trained with the seeds of CFG["seeds"] on one
+Uncertainty follows Zhouyang's protocol: every model is trained with the seeds of TRAIN.seeds on one
 fixed split; results are the mean ± sample standard deviation over these seeds. Two models trained
 with the same seed are compared seed by seed ("higher in k of n seeds"). The standard deviation
 covers the randomness of training, not the choice of test leaves.
@@ -20,7 +20,7 @@ import torch.nn.functional as F  # noqa: N812
 from sklearn.metrics import f1_score
 from torch import nn
 
-from .config import CFG, SEEDS, USE_AMP, device, synchronize
+from .config import DATA, SEEDS, USE_AMP, device, synchronize
 from .data import eval_tf
 from .experiments import config_of
 from .models import LAYER_OF, count_params
@@ -94,7 +94,7 @@ def stable_errors(
 # ----------------------------------------------------------------------------
 def measure_latency(model: nn.Module, batch_size: int, repeats: int = 20) -> float:
     # Inference time in ms per image on the current device, after a warm-up.
-    x = torch.randn(batch_size, 3, CFG["img_size"], CFG["img_size"], device=device)
+    x = torch.randn(batch_size, 3, DATA.img_size, DATA.img_size, device=device)
     with (
         torch.no_grad(),
         torch.autocast(device.type, dtype=torch.float16, enabled=USE_AMP),
@@ -111,14 +111,13 @@ def measure_latency(model: nn.Module, batch_size: int, repeats: int = 20) -> flo
 
 def training_cost(name: str) -> dict[str, Any]:
     # Training cost over the seeds: trainable parameters (fine-tuning stage), epochs trained (early
-    # stopping), training time without validation (device-synchronised), and peak memory during training.
+    # stopping), and training time without validation (device-synchronised).
     histories = [load_history(name, s) for s in SEEDS]
     return {
         "trainable params": histories[0]["trainable_params"][-1],
         "epochs trained": mean_sd([len(h["train_time"]) for h in histories], 1),
         "train time (s)": mean_sd([sum(h["train_time"]) for h in histories], 1),
         "train s/epoch": np.mean([np.mean(h["train_time"]) for h in histories]),
-        "peak memory (MiB)": np.mean([h["peak_memory_mib"] for h in histories]),
     }
 
 

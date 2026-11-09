@@ -1,6 +1,5 @@
 """Training engine (Section 8): run/load one configuration and seed, predictions with an on-disk cache."""
 
-import gc
 import hashlib
 import json
 import os
@@ -91,32 +90,6 @@ def make_optimizer(model: nn.Module, cfg: dict[str, Any], stage: str) -> AdamW:
     return AdamW(groups, weight_decay=cfg["weight_decay"])
 
 
-class PeakMemory:
-    # Peak memory that PyTorch allocates on the device during training (model, gradients, optimizer
-    # state, activations), in MiB. CUDA: the exact peak. Apple MPS has no peak counter, so the
-    # maximum of samples taken after every forward and backward pass is used. CPU: not measured.
-    def __init__(self) -> None:
-        gc.collect()
-        if device.type == "cuda":
-            torch.cuda.empty_cache()
-            torch.cuda.reset_peak_memory_stats()
-        elif device.type == "mps":
-            torch.mps.empty_cache()
-        self.peak = 0
-
-    def sample(self) -> None:
-        if device.type == "mps":
-            self.peak = max(self.peak, torch.mps.current_allocated_memory())
-
-    @property
-    def mib(self) -> float:
-        if device.type == "cuda":
-            return torch.cuda.max_memory_allocated() / 2**20
-        if device.type == "mps":
-            return self.peak / 2**20
-        return float("nan")
-
-
 def run(name: str, cfg: dict[str, Any], seed: int, data: Data) -> dict[str, Any]:  # noqa: PLR0915
     # Train one configuration with one seed (or load it if it was trained before). Returns the history.
     run_dir = run_path(name, seed)
@@ -131,7 +104,6 @@ def run(name: str, cfg: dict[str, Any], seed: int, data: Data) -> dict[str, Any]
     print(f"\n===== {name} (seed {seed}) =====")
     # stale predictions
     shutil.rmtree(os.path.join(run_dir, "preds"), ignore_errors=True)
-    memory = PeakMemory()
     set_seed(seed)
     model = build_model(cfg).to(device)
     train_idx = data.train_idx
@@ -184,9 +156,7 @@ def run(name: str, cfg: dict[str, Any], seed: int, data: Data) -> dict[str, Any]
                 outputs = model(x)
                 loss = criterion(outputs, y)
             optimizer.zero_grad(set_to_none=True)
-            memory.sample()
             scaler.scale(loss).backward()
-            memory.sample()
             scaler.unscale_(optimizer)
             nn.utils.clip_grad_norm_(params, max_norm=1.0)
             scaler.step(optimizer)
@@ -230,12 +200,10 @@ def run(name: str, cfg: dict[str, Any], seed: int, data: Data) -> dict[str, Any]
             break
 
     history["stopped_early"] = len(history["val_f1"]) < cfg["epochs"]
-    history["peak_memory_mib"] = memory.mib
     with open(history_file, "w") as f:
         json.dump({"config": cfg, "data": data.data_id, "history": history}, f)
     print(
         f"Best val macro-F1: {best_f1:.4f} (epoch {best_epoch + 1} of {len(history['val_f1'])})"
-        f" | peak memory {memory.mib:.0f} MiB"
     )
     return history
 
