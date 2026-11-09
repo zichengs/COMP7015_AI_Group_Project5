@@ -10,7 +10,7 @@ from torch import nn
 from torch.utils.data import DataLoader
 
 from .config import TRAIN_CONFIG, run_path, safe_name
-from .data import eval_loader
+from .data.loaders import eval_loader
 from .device import USE_AMP, device
 from .experiments import config_of
 from .models import build_model

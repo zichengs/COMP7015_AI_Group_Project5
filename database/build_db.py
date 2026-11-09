@@ -16,9 +16,9 @@ from concurrent.futures import ThreadPoolExecutor
 
 from PIL import Image
 
-# the leaf-id rules of the notebooks (plantdisease/leafmap.py, no torch import)
+# the leaf-id rules of the notebooks (plantdisease/data/leafmap.py, no torch import)
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from plantdisease.leafmap import EXT_PATTERN, image_key, leaf_class, leaf_id
+from plantdisease.data.leafmap import EXT_PATTERN, image_key, leaf_class, leaf_id
 
 SCHEMA_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "schema.sql")
 # color first: its file names define the photo stems

@@ -80,9 +80,13 @@ The notebooks show the steps and the results. The shared code is in the `plantdi
 |---|---|
 | `config.py` | settings (`PATHS_CONFIG`, `DATA_CONFIG`, `PLANTDOC_CONFIG`, `TRAIN_CONFIG`) |
 | `device.py` | device, mixed precision, determinism, `set_seed`, `synchronize` |
-| `leafmap.py` | leaf ids from `leaf-map.json` (also used by `database/build_db.py`) |
-| `data.py` | download, leaf grouping, image cache, split, segmented and grayscale versions, transforms, loaders, `prepare()` |
-| `backgrounds.py` | leaf masks, test variants, same-leaf background tests, background-swap dataset |
+| `data/download.py` | PlantVillage (git sparse checkout) and PlantDoc (file by file) downloads |
+| `data/leafmap.py` | leaf ids from `leaf-map.json` (no torch; also used by `database/build_db.py`) |
+| `data/records.py` | photo table, series, leaf-group split with leakage audit, data fingerprint |
+| `data/images.py` | image cache (decode and resize once), segmented and grayscale versions |
+| `data/loaders.py` | transforms and augmentation, `CachedDataset`, data loaders |
+| `data/dataset.py` | the `Data` object and `prepare()`, which rebuilds the whole data protocol in one call |
+| `data/backgrounds.py` | leaf masks, test variants, same-leaf background tests, background-swap dataset |
 | `models.py` | custom CNN with SE attention, ResNet18, ViT-B/16, freezing for the fine-tuning strategies |
 | `recipe.py` | `RunConfig`, the pydantic model of one training run (which settings exist, their types and allowed values) |
 | `experiments.py` | registry of the experiments defined in notebooks 02 and 03 (`outputs/experiments.json`), derived runs of Sections 15 and 18, the selected models |

@@ -1,8 +1,11 @@
 """Leaf masks and backgrounds: test variants (14), same-leaf background tests (16), countermeasure (18)."""
 
+from __future__ import annotations
+
 import random
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
 
 import numpy as np
 import torch
@@ -10,7 +13,11 @@ import torch.nn.functional as F  # noqa: N812
 from scipy.ndimage import binary_closing, binary_fill_holes
 from torchvision.transforms import v2
 
-from .data import CachedDataset, Data, to_grayscale
+from .images import to_grayscale
+from .loaders import CachedDataset
+
+if TYPE_CHECKING:  # dataset.py imports this module
+    from .dataset import Data
 
 
 def leaf_masks(segmented: torch.Tensor, threshold: int = 10) -> torch.Tensor:

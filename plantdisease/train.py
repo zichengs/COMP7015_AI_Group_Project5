@@ -15,9 +15,16 @@ from torch.optim import AdamW
 from torch.optim.lr_scheduler import CosineAnnealingLR
 from torch.utils.data import DataLoader
 
-from .backgrounds import BackgroundSwapDataset
 from .config import TRAIN_CONFIG, run_path
-from .data import CachedDataset, Data, eval_loader, eval_tf, make_loader, train_tf
+from .data.backgrounds import BackgroundSwapDataset
+from .data.dataset import Data
+from .data.loaders import (
+    CachedDataset,
+    eval_loader,
+    eval_tf,
+    make_loader,
+    train_tf,
+)
 from .device import USE_AMP, device, set_seed, synchronize
 from .experiments import config_of
 from .models import build_model, count_params, is_head, set_trainable

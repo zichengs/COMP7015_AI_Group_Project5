@@ -21,7 +21,7 @@ from sklearn.metrics import f1_score
 from torch import nn
 
 from .config import DATA_CONFIG, TRAIN_CONFIG, safe_name
-from .data import eval_tf
+from .data.loaders import eval_tf
 from .device import USE_AMP, device, synchronize
 from .experiments import config_of
 from .models import LAYER_OF, count_params

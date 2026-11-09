@@ -5,6 +5,7 @@ No torch import, so that database/build_db.py can use it without loading the not
 
 import re
 
+IMAGE_SUFFIXES = (".jpg", ".jpeg", ".png")
 EXT_PATTERN = re.compile(r"\.(jpe?g|png)$", flags=re.IGNORECASE)
 SERIES_PATTERN = re.compile(
     r"^(gh_hl|ghlb_ps|ghlb2es|ghlb2|ghlb) leaf (\d+)"
