@@ -28,11 +28,10 @@ class RunConfig(BaseModel):
     finetune: Literal["head", "partial", "full"] = "full"  # what is unfrozen after the head epochs
     trainable_blocks: int | None = None  # finetune="partial": number of last ViT encoder blocks
 
-    # derived runs (Sections 15, 18 and notebook 07)
+    # derived runs (Sections 15 and 18)
     input: Literal["color", "grayscale", "segmented"] = "color"
     background_swap: float = 0.0  # share of the training photos with a random background
     class_matched_background: bool = False  # control: the background comes from the same class
-    num_classes: int | None = None  # None: the four tomato classes
 
     @model_validator(mode="after")
     def check_consistency(self) -> Self:

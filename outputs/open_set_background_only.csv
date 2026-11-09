@@ -1,4 +1,0 @@
-,accuracy,macro-F1
-"four image corners, original photos",0.7065326633165829,0.6695978111001338
-"four image corners, background removed",0.33768844221105526,0.22274484891264926
-always the largest class (reference),0.25326633165829143,0.0673616680032077

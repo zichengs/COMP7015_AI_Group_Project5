@@ -55,8 +55,7 @@ class CustomCNN(nn.Module):
 
 
 def build_model(cfg: RunConfig, pretrained: bool = True) -> nn.Module:
-    # number of outputs: the four classes, or more for the open-set runs of notebook 07
-    k = cfg.num_classes or len(DATA_CONFIG["classes"])
+    k = len(DATA_CONFIG["classes"])  # number of outputs
     if cfg.arch in ("cnn", "se_cnn"):
         return CustomCNN(k, cfg.dropout, attention=cfg.arch == "se_cnn")
     if cfg.arch == "resnet18":

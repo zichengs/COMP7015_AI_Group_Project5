@@ -14,7 +14,7 @@ Without uv: `pip install torch torchvision torchinfo scikit-learn scipy pandas m
 
 The code runs on an NVIDIA GPU (CUDA, with mixed precision), on Apple silicon (MPS) and on the CPU; the device is chosen automatically.
 
-The dataset is downloaded by the first notebook: a sparse git checkout of the four tomato folders of `raw/color` and `raw/segmented`, plus `leaf-map.json`. Section 19.2 also downloads the matching folders of [PlantDoc](https://github.com/pratikkayal/PlantDoc-Dataset). It is skipped if the download fails. Notebook 07 adds the `raw/color` folders of the other tomato diseases and other crops, and the PlantDoc folders outside the four classes.
+The dataset is downloaded by the first notebook: a sparse git checkout of the four tomato folders of `raw/color` and `raw/segmented`, plus `leaf-map.json`. Section 19.2 also downloads the matching folders of [PlantDoc](https://github.com/pratikkayal/PlantDoc-Dataset). It is skipped if the download fails.
 
 ## Running
 
@@ -28,7 +28,6 @@ Run the notebooks in order, from the repository root:
 | `04_test_evaluation.ipynb` | 11–13 | test results of the final models over 3 seeds, compute trade-offs (inference and training cost), error analysis, Grad-CAM |
 | `05_robustness.ipynb` | 14–20 | robustness to background removal, grayscale, lighting, blur and noise; ViT retrained on grayscale and background-removed photos; the same leaf on other backgrounds; leaf attention; countermeasure (random backgrounds); left-out photo series and PlantDoc field photos; confidence and abstention |
 | `06_discussion.ipynb` | 21–22 | all key tables in one place, discussion |
-| `07_open_set.ipynb` | 23–30 | extension: the classes *Other disease* and *Other crop*; the three selected recipes trained on six classes and compared with the four-class models (tomato test, robustness, left-out series and field photos, rejection of other diseases and crops, including some never seen in training) |
 
 Every training run is saved under `outputs/runs/<run>__seed<seed>/`: the best checkpoint, the history (including training time, peak memory and whether it stopped early) and the configuration. Re-running a notebook loads finished runs instead of retraining them, and it reuses cached predictions. So an interrupted run can simply be resumed, and every notebook can be re-run on its own once the earlier ones have run. Notebooks 02 and 03 write the selected models to `outputs/final_models.json`.
 
@@ -89,7 +88,6 @@ The notebooks show the steps and the results. The shared code is in the `plantdi
 | `experiments.py` | registry of the experiments defined in notebooks 02 and 03 (`outputs/experiments.json`), derived runs of Sections 15 and 18, the selected models |
 | `train.py` | training engine (AdamW, schedules, two-stage fine-tuning with separate head/backbone learning rates, checkpoints, training cost), cached predictions |
 | `evaluate.py` | macro-F1, mean ± sd over seeds, same-seed comparisons, stable errors, Grad-CAM, latency and training cost, calibration |
-| `open_set.py` | notebook 07: the design of the classes *Other disease* and *Other crop*, held-out folders, six-class data, rejection rule |
 | `plots.py` | plotting helpers |
 
 `plant_disease_classification2.ipynb` and `plant_disease_classification3_julia.ipynb` are earlier single-notebook versions with different classes (bacterial spot and late blight instead of leaf mold and spider mites); they are kept for reference.

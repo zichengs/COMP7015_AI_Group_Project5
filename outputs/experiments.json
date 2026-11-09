@@ -17,8 +17,7 @@
     "trainable_blocks": null,
     "input": "color",
     "background_swap": 0.0,
-    "class_matched_background": false,
-    "num_classes": null
+    "class_matched_background": false
   },
   "SE-CNN lr=3e-4": {
     "arch": "se_cnn",
@@ -38,8 +37,7 @@
     "trainable_blocks": null,
     "input": "color",
     "background_swap": 0.0,
-    "class_matched_background": false,
-    "num_classes": null
+    "class_matched_background": false
   },
   "SE-CNN lr=3e-3": {
     "arch": "se_cnn",
@@ -59,8 +57,7 @@
     "trainable_blocks": null,
     "input": "color",
     "background_swap": 0.0,
-    "class_matched_background": false,
-    "num_classes": null
+    "class_matched_background": false
   },
   "CNN (no attention)": {
     "arch": "cnn",
@@ -80,8 +77,7 @@
     "trainable_blocks": null,
     "input": "color",
     "background_swap": 0.0,
-    "class_matched_background": false,
-    "num_classes": null
+    "class_matched_background": false
   },
   "SE-CNN no augmentation": {
     "arch": "se_cnn",
@@ -101,8 +97,7 @@
     "trainable_blocks": null,
     "input": "color",
     "background_swap": 0.0,
-    "class_matched_background": false,
-    "num_classes": null
+    "class_matched_background": false
   },
   "SE-CNN no dropout": {
     "arch": "se_cnn",
@@ -122,8 +117,7 @@
     "trainable_blocks": null,
     "input": "color",
     "background_swap": 0.0,
-    "class_matched_background": false,
-    "num_classes": null
+    "class_matched_background": false
   },
   "SE-CNN no class weights": {
     "arch": "se_cnn",
@@ -143,8 +137,7 @@
     "trainable_blocks": null,
     "input": "color",
     "background_swap": 0.0,
-    "class_matched_background": false,
-    "num_classes": null
+    "class_matched_background": false
   },
   "SE-CNN constant lr": {
     "arch": "se_cnn",
@@ -164,8 +157,7 @@
     "trainable_blocks": null,
     "input": "color",
     "background_swap": 0.0,
-    "class_matched_background": false,
-    "num_classes": null
+    "class_matched_background": false
   },
   "SE-CNN batch size 64": {
     "arch": "se_cnn",
@@ -185,8 +177,7 @@
     "trainable_blocks": null,
     "input": "color",
     "background_swap": 0.0,
-    "class_matched_background": false,
-    "num_classes": null
+    "class_matched_background": false
   },
   "ResNet18 frozen backbone": {
     "arch": "resnet18",
@@ -206,8 +197,7 @@
     "trainable_blocks": null,
     "input": "color",
     "background_swap": 0.0,
-    "class_matched_background": false,
-    "num_classes": null
+    "class_matched_background": false
   },
   "ResNet18 full FT, constant lr": {
     "arch": "resnet18",
@@ -227,8 +217,7 @@
     "trainable_blocks": null,
     "input": "color",
     "background_swap": 0.0,
-    "class_matched_background": false,
-    "num_classes": null
+    "class_matched_background": false
   },
   "ResNet18 two-stage + cosine, lr=1e-4": {
     "arch": "resnet18",
@@ -248,8 +237,7 @@
     "trainable_blocks": null,
     "input": "color",
     "background_swap": 0.0,
-    "class_matched_background": false,
-    "num_classes": null
+    "class_matched_background": false
   },
   "ResNet18 two-stage + cosine, lr=3e-4": {
     "arch": "resnet18",
@@ -269,8 +257,7 @@
     "trainable_blocks": null,
     "input": "color",
     "background_swap": 0.0,
-    "class_matched_background": false,
-    "num_classes": null
+    "class_matched_background": false
   },
   "ResNet18 batch size 64": {
     "arch": "resnet18",
@@ -290,8 +277,7 @@
     "trainable_blocks": null,
     "input": "color",
     "background_swap": 0.0,
-    "class_matched_background": false,
-    "num_classes": null
+    "class_matched_background": false
   },
   "ResNet18 no augmentation": {
     "arch": "resnet18",
@@ -311,8 +297,7 @@
     "trainable_blocks": null,
     "input": "color",
     "background_swap": 0.0,
-    "class_matched_background": false,
-    "num_classes": null
+    "class_matched_background": false
   },
   "ResNet18 weight decay 1e-2": {
     "arch": "resnet18",
@@ -332,8 +317,7 @@
     "trainable_blocks": null,
     "input": "color",
     "background_swap": 0.0,
-    "class_matched_background": false,
-    "num_classes": null
+    "class_matched_background": false
   },
   "ViT-B/16 head only": {
     "arch": "vit_b_16",
@@ -353,8 +337,7 @@
     "trainable_blocks": 2,
     "input": "color",
     "background_swap": 0.0,
-    "class_matched_background": false,
-    "num_classes": null
+    "class_matched_background": false
   },
   "ViT-B/16 partial (last 2 blocks)": {
     "arch": "vit_b_16",
@@ -374,8 +357,7 @@
     "trainable_blocks": 2,
     "input": "color",
     "background_swap": 0.0,
-    "class_matched_background": false,
-    "num_classes": null
+    "class_matched_background": false
   },
   "ViT-B/16 full fine-tuning": {
     "arch": "vit_b_16",
@@ -395,8 +377,7 @@
     "trainable_blocks": 2,
     "input": "color",
     "background_swap": 0.0,
-    "class_matched_background": false,
-    "num_classes": null
+    "class_matched_background": false
   },
   "ViT-B/16 partial, no augmentation": {
     "arch": "vit_b_16",
@@ -416,7 +397,6 @@
     "trainable_blocks": 2,
     "input": "color",
     "background_swap": 0.0,
-    "class_matched_background": false,
-    "num_classes": null
+    "class_matched_background": false
   }
 }

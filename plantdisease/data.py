@@ -46,7 +46,7 @@ def sparse_checkout(url: str, root: str, folders: list[str]) -> list[str]:
 
 
 def field_records(folders: dict[str, int]) -> pd.DataFrame:
-    # PlantDoc photos (Section 19.2, notebook 07) of `folders` ({PlantDoc folder: label}), from the
+    # PlantDoc photos (Section 19.2) of `folders` ({PlantDoc folder: label}), from the
     # authors' train and test folders: all are test data here. Missing folders are downloaded;
     # folders that are not complete (download failed) are skipped.
     root = PLANTDOC_CONFIG["root"]
@@ -108,12 +108,9 @@ def download_github_folders(url: str, root: str, folders: list[str]) -> list[str
     return [f for f, d in zip(folders, done, strict=True) if os.path.exists(d)]
 
 
-def download_plantvillage(extra_folders: Iterable[str] = ()) -> list[str]:
-    # The four tomato folders of raw/color (training images) and raw/segmented (background removed),
-    # plus `extra_folders` (notebook 07). 'sparse-checkout set' replaces the folder list, so the four
-    # tomato folders are always included.
+def download_plantvillage() -> list[str]:
+    # The four tomato folders of raw/color (training images) and raw/segmented (background removed).
     folders = [f"raw/{kind}/{c}" for kind in ["color", "segmented"] for c in DATA_CONFIG["classes"]]
-    folders += list(extra_folders)
     sparse_checkout(
         "https://github.com/spMohanty/PlantVillage-Dataset", DATA_ROOT, folders
     )
@@ -231,7 +228,7 @@ def data_fingerprint(df: pd.DataFrame, train_idx: np.ndarray) -> str:
 @cache
 def segmented_by_name(folder: str) -> dict[str, str]:
     # {original photo name: segmented file} of a segmented folder, for colour photos without the
-    # UUID prefix ('RS_Rust 1563.JPG' -> '<uuid>___RS_Rust 1563_final_masked.jpg', notebook 07).
+    # UUID prefix ('RS_Rust 1563.JPG' -> '<uuid>___RS_Rust 1563_final_masked.jpg').
     if not os.path.isdir(folder):
         return {}
     return {
@@ -352,7 +349,7 @@ def eval_loader(
 
 def class_weights(df: pd.DataFrame, train_idx: np.ndarray) -> torch.Tensor:
     # Class-weighted loss: w_c = N / (K * n_c) over the training photos.
-    k = max(len(DATA_CONFIG["classes"]), df.label.max() + 1)  # more than four classes in notebook 07
+    k = len(DATA_CONFIG["classes"])
     train_counts = np.bincount(df.label[train_idx], minlength=k)
     return torch.tensor(len(train_idx) / (k * train_counts), dtype=torch.float32)
 
