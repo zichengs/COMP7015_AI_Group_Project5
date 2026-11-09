@@ -115,10 +115,10 @@ def training_cost(name: str) -> dict[str, Any]:
     # stopping), and training time without validation (device-synchronised).
     histories = [load_history(name, s) for s in TRAIN_CONFIG["seeds"]]
     return {
-        "trainable params": histories[0]["trainable_params"][-1],
-        "epochs trained": mean_sd([len(h["train_time"]) for h in histories], 1),
-        "train time (s)": mean_sd([sum(h["train_time"]) for h in histories], 1),
-        "train s/epoch": np.mean([np.mean(h["train_time"]) for h in histories]),
+        "trainable params": histories[0].trainable_params[-1],
+        "epochs trained": mean_sd([len(h.train_time) for h in histories], 1),
+        "train time (s)": mean_sd([sum(h.train_time) for h in histories], 1),
+        "train s/epoch": np.mean([np.mean(h.train_time) for h in histories]),
     }
 
 

@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
 from matplotlib.axes import Axes
+from pydantic import BaseModel
 
 from .config import out_path
 
@@ -52,10 +53,12 @@ def grouped_bars(
     ax.set_xticks(x_pos, xlabels)
 
 
-def stack_curves(histories: Sequence[dict[str, Any]], key: str) -> np.ndarray:
-    # Per-epoch values of several runs as one (runs, epochs) array; NaN after a run stopped early.
-    n = max(len(h[key]) for h in histories)
-    return np.array([h[key] + [np.nan] * (n - len(h[key])) for h in histories])
+def stack_curves(histories: Sequence[BaseModel], key: str) -> np.ndarray:
+    # Per-epoch values of several run histories (RunHistory) as one (runs, epochs) array; NaN after a
+    # run stopped early. `key` is the name of a per-epoch list, e.g. 'val_f1'.
+    curves = [getattr(h, key) for h in histories]
+    n = max(len(c) for c in curves)
+    return np.array([c + [np.nan] * (n - len(c)) for c in curves])
 
 
 def mean_and_sd(values: np.ndarray) -> tuple[np.ndarray, np.ndarray]:

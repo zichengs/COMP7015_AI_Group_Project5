@@ -7,7 +7,6 @@ import re
 import shutil
 import time
 from collections.abc import Callable, Iterable, Sequence
-from typing import Any
 
 import numpy as np
 import torch
@@ -25,7 +24,7 @@ from .data import CachedDataset, Data, eval_loader, eval_tf, make_loader, train_
 from .device import USE_AMP, device, set_seed, synchronize
 from .experiments import config_of
 from .models import build_model, count_params, is_head, set_trainable
-from .recipe import RunConfig
+from .recipe import RunConfig, RunHistory
 
 
 def predict(model: nn.Module, loader: DataLoader) -> tuple[torch.Tensor, torch.Tensor]:
@@ -93,7 +92,7 @@ def make_optimizer(model: nn.Module, cfg: RunConfig, stage: str) -> AdamW:
     return AdamW(groups, weight_decay=cfg.weight_decay)
 
 
-def load_finished(run_dir: str, cfg: RunConfig, data: Data) -> dict[str, Any] | None:
+def load_finished(run_dir: str, cfg: RunConfig, data: Data) -> RunHistory | None:
     # History of a finished run, or None if it was not trained with this configuration and data.
     history_file = os.path.join(run_dir, "history.json")
     if not os.path.exists(history_file):
@@ -102,11 +101,10 @@ def load_finished(run_dir: str, cfg: RunConfig, data: Data) -> dict[str, Any] | 
         saved = json.load(f)
     try:  # settings that were not saved yet have their default value
         same_config = RunConfig.model_validate(saved["config"]) == cfg
+        history = RunHistory.model_validate(saved["history"])
     except ValidationError:
-        same_config = False
-    if same_config and saved.get("data") == data.data_id:
-        return saved["history"]
-    return None
+        return None
+    return history if same_config and saved.get("data") == data.data_id else None
 
 
 def start_stage(
@@ -133,7 +131,7 @@ def train_epoch(
     criterion: nn.Module,
     optimizer: AdamW,
     scheduler: CosineAnnealingLR | None,
-    scaler: torch.amp.GradScaler,
+    scaler: torch.amp.GradScaler,  # loss scaling for mixed precision (disabled without CUDA)
     params: list[nn.Parameter],
 ) -> tuple[float, float, float]:
     # One training epoch. Returns loss, accuracy and the time (timed without validation, after the
@@ -151,11 +149,12 @@ def train_epoch(
             outputs = model(x)
             loss = criterion(outputs, y)
         optimizer.zero_grad(set_to_none=True)
-        scaler.scale(loss).backward()
-        scaler.unscale_(optimizer)
+        # mixed-precision update (see GradScaler in run()):
+        scaler.scale(loss).backward()  # backward pass on the scaled loss
+        scaler.unscale_(optimizer)  # gradients back to their true size, before clipping
         nn.utils.clip_grad_norm_(params, max_norm=1.0)
-        scaler.step(optimizer)
-        scaler.update()
+        scaler.step(optimizer)  # optimizer step, skipped if gradients have inf / NaN
+        scaler.update()  # lower the scale after an overflow, raise it slowly while stable
         if scheduler:
             scheduler.step()
         running_loss += loss.item() * x.size(0)
@@ -180,7 +179,7 @@ def validate(model: nn.Module, loader: DataLoader) -> tuple[float, float, float,
     )
 
 
-def run(name: str, cfg: RunConfig, seed: int, data: Data) -> dict[str, Any]:
+def run(name: str, cfg: RunConfig, seed: int, data: Data) -> RunHistory:
     # Train one configuration with one seed (or load it if it was trained before). Returns the history.
     run_dir = run_path(name, seed)
     finished = load_finished(run_dir, cfg, data)
@@ -199,22 +198,11 @@ def run(name: str, cfg: RunConfig, seed: int, data: Data) -> dict[str, Any]:
     criterion = nn.CrossEntropyLoss(
         weight=data.class_weights.to(device) if cfg.class_weights else None
     )
+    # loss scaling for mixed precision (CUDA only): float16 gradients can underflow to zero, so the
+    # loss is scaled up before backward() and the gradients are scaled back before the update. When
+    # USE_AMP is False (MPS, CPU) the scaler is disabled and all its calls do nothing.
     scaler = torch.amp.GradScaler("cuda", enabled=USE_AMP)
-    history = {
-        k: []
-        for k in (
-            "train_loss",
-            "train_acc",
-            "val_loss",
-            "val_acc",
-            "val_f1",
-            "lr",
-            "train_time",
-            "val_time",
-            "epoch_time",
-            "trainable_params",
-        )
-    }
+    history = RunHistory()
     best_f1, best_epoch = -1.0, -1
     # early stopping is only considered in the last training stage (after the head-only epochs)
     last_stage_start = cfg.head_epochs if cfg.head_epochs < cfg.epochs else 0
@@ -225,32 +213,32 @@ def run(name: str, cfg: RunConfig, seed: int, data: Data) -> dict[str, Any]:
                 model, cfg, epoch, len(train_loader)
             )
 
-        history["lr"].append(optimizer.param_groups[0]["lr"])
-        history["trainable_params"].append(count_params(model, trainable_only=True))
+        # learning rate before the epoch (the scheduler changes it during the epoch)
+        lr = optimizer.param_groups[0]["lr"]
         train_loss, train_acc, train_time = train_epoch(
             model, train_loader, criterion, optimizer, scheduler, scaler, params
         )
         val_loss, val_acc, val_f1, val_time = validate(model, val_loader)
-        for key, value in {
-            "train_loss": train_loss,
-            "train_acc": train_acc,
-            "train_time": train_time,
-            "val_loss": val_loss,
-            "val_acc": val_acc,
-            "val_f1": val_f1,
-            "val_time": val_time,
-            "epoch_time": train_time + val_time,
-        }.items():
-            history[key].append(value)
+        history.add_epoch(
+            lr=lr,
+            trainable_params=count_params(model, trainable_only=True),
+            train_loss=train_loss,
+            train_acc=train_acc,
+            train_time=train_time,
+            val_loss=val_loss,
+            val_acc=val_acc,
+            val_f1=val_f1,
+            val_time=val_time,
+        )
         print(
-            f"Epoch {epoch + 1}/{cfg.epochs} [{stage}] | train loss {history['train_loss'][-1]:.4f} acc {history['train_acc'][-1]:.4f}"
-            f" | val loss {history['val_loss'][-1]:.4f} acc {history['val_acc'][-1]:.4f} macro-F1 {history['val_f1'][-1]:.4f}"
-            f" | {history['epoch_time'][-1]:.0f}s"
+            f"Epoch {epoch + 1}/{cfg.epochs} [{stage}] | train loss {train_loss:.4f} acc {train_acc:.4f}"
+            f" | val loss {val_loss:.4f} acc {val_acc:.4f} macro-F1 {val_f1:.4f}"
+            f" | {train_time + val_time:.0f}s"
         )
 
         # checkpoint the best epoch (ties keep the earlier one)
-        if history["val_f1"][-1] > best_f1:
-            best_f1, best_epoch = history["val_f1"][-1], epoch
+        if val_f1 > best_f1:
+            best_f1, best_epoch = val_f1, epoch
             os.makedirs(run_dir, exist_ok=True)
             torch.save(model.state_dict(), os.path.join(run_dir, "best.pt"))
 
@@ -264,20 +252,25 @@ def run(name: str, cfg: RunConfig, seed: int, data: Data) -> dict[str, Any]:
             print(f"Early stopping: no improvement for {cfg.patience} epochs")
             break
 
-    history["stopped_early"] = len(history["val_f1"]) < cfg.epochs
+    history.stopped_early = len(history.val_f1) < cfg.epochs
     with open(os.path.join(run_dir, "history.json"), "w") as f:
         json.dump(
-            {"config": cfg.model_dump(), "data": data.data_id, "history": history}, f
+            {
+                "config": cfg.model_dump(),
+                "data": data.data_id,
+                "history": history.model_dump(),
+            },
+            f,
         )
     print(
-        f"Best val macro-F1: {best_f1:.4f} (epoch {best_epoch + 1} of {len(history['val_f1'])})"
+        f"Best val macro-F1: {best_f1:.4f} (epoch {best_epoch + 1} of {len(history.val_f1)})"
     )
     return history
 
 
 def run_seeds(
     name: str, data: Data, seeds: Sequence[int] = TRAIN_CONFIG["seeds"]
-) -> list[dict[str, Any]]:
+) -> list[RunHistory]:
     # Train (or load) a run name with every training seed.
     return [run(name, config_of(name), seed, data) for seed in seeds]
 
@@ -293,9 +286,9 @@ def load_model(name: str, seed: int) -> nn.Module:
     return model.to(device).eval()
 
 
-def load_history(name: str, seed: int) -> dict[str, Any]:
+def load_history(name: str, seed: int) -> RunHistory:
     with open(os.path.join(run_path(name, seed), "history.json")) as f:
-        return json.load(f)["history"]
+        return RunHistory.model_validate(json.load(f)["history"])
 
 
 def fingerprint(images: torch.Tensor) -> str:

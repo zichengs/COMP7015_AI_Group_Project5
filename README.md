@@ -90,7 +90,7 @@ The notebooks show the steps and the results. The shared code is in the `plantdi
 | `evaluate.py` | macro-F1, mean ± sd over seeds, same-seed comparisons, stable errors, Grad-CAM, latency and training cost, calibration |
 | `plots.py` | plotting helpers |
 
-`plant_disease_classification2.ipynb` and `plant_disease_classification3_julia.ipynb` are earlier single-notebook versions with different classes (bacterial spot and late blight instead of leaf mold and spider mites); they are kept for reference.
+`docs/archives/plant_disease_classification2.ipynb` and `docs/archives/plant_disease_classification3_julia.ipynb` are earlier single-notebook versions with different classes (bacterial spot and late blight instead of leaf mold and spider mites); they are kept for reference.
 
 ## Acknowledgements
 
