@@ -20,12 +20,13 @@ import torch.nn.functional as F  # noqa: N812
 from sklearn.metrics import f1_score
 from torch import nn
 
-from .config import DATA_CONFIG, TRAIN_CONFIG
+from .config import DATA_CONFIG, TRAIN_CONFIG, safe_name
 from .data import eval_tf
 from .device import USE_AMP, device, synchronize
 from .experiments import config_of
 from .models import LAYER_OF, count_params
-from .train import cached_arrays, fingerprint, load_history, load_model, safe_name
+from .predictions import cached_arrays, fingerprint, load_model
+from .train import load_history
 
 
 # ----------------------------------------------------------------------------

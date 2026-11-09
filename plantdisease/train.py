@@ -1,14 +1,11 @@
-"""Training engine (Section 8): run/load one configuration and seed, predictions with an on-disk cache."""
+"""Training engine (Section 8): train one configuration with one seed, or load it if it was trained before."""
 
-import hashlib
 import json
 import os
-import re
 import shutil
 import time
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Sequence
 
-import numpy as np
 import torch
 import torch.nn.functional as F  # noqa: N812
 from pydantic import ValidationError
@@ -19,36 +16,17 @@ from torch.optim.lr_scheduler import CosineAnnealingLR
 from torch.utils.data import DataLoader
 
 from .backgrounds import BackgroundSwapDataset
-from .config import PATHS_CONFIG, TRAIN_CONFIG
+from .config import TRAIN_CONFIG, run_path
 from .data import CachedDataset, Data, eval_loader, eval_tf, make_loader, train_tf
 from .device import USE_AMP, device, set_seed, synchronize
 from .experiments import config_of
 from .models import build_model, count_params, is_head, set_trainable
+from .predictions import predict
 from .recipe import RunConfig, RunHistory
 
-
-def predict(model: nn.Module, loader: DataLoader) -> tuple[torch.Tensor, torch.Tensor]:
-    # Return logits and labels for a whole loader.
-    model.eval()
-    all_logits, all_labels = [], []
-    with (
-        torch.no_grad(),
-        torch.autocast(device.type, dtype=torch.float16, enabled=USE_AMP),
-    ):
-        for x, y in loader:
-            all_logits.append(model(x.to(device)).float().cpu())
-            all_labels.append(y)
-    return torch.cat(all_logits), torch.cat(all_labels)
-
-
-def safe_name(name: str) -> str:
-    # File-system safe version of a run or test-set name, e.g. 'ViT-B/16' -> 'ViT-B_16'.
-    return re.sub(r"[^\w.=+-]+", "_", name)
-
-
-def run_path(name: str, seed: int) -> str:
-    # Folder of one run.
-    return os.path.join(PATHS_CONFIG["runs_dir"], safe_name(name) + f"__seed{seed}")
+# ----------------------------------------------------------------------------
+# Setting up a run
+# ----------------------------------------------------------------------------
 
 
 def train_dataset(cfg: RunConfig, data: Data) -> CachedDataset:
@@ -92,21 +70,6 @@ def make_optimizer(model: nn.Module, cfg: RunConfig, stage: str) -> AdamW:
     return AdamW(groups, weight_decay=cfg.weight_decay)
 
 
-def load_finished(run_dir: str, cfg: RunConfig, data: Data) -> RunHistory | None:
-    # History of a finished run, or None if it was not trained with this configuration and data.
-    history_file = os.path.join(run_dir, "history.json")
-    if not os.path.exists(history_file):
-        return None
-    with open(history_file) as f:
-        saved = json.load(f)
-    try:  # settings that were not saved yet have their default value
-        same_config = RunConfig.model_validate(saved["config"]) == cfg
-        history = RunHistory.model_validate(saved["history"])
-    except ValidationError:
-        return None
-    return history if same_config and saved.get("data") == data.data_id else None
-
-
 def start_stage(
     model: nn.Module, cfg: RunConfig, epoch: int, steps_per_epoch: int
 ) -> tuple[str, list[nn.Parameter], AdamW, CosineAnnealingLR | None]:
@@ -123,6 +86,11 @@ def start_stage(
             optimizer, T_max=steps_per_epoch * (stage_end - epoch)
         )
     return stage, params, optimizer, scheduler
+
+
+# ----------------------------------------------------------------------------
+# One epoch: training and validation
+# ----------------------------------------------------------------------------
 
 
 def train_epoch(
@@ -179,6 +147,62 @@ def validate(model: nn.Module, loader: DataLoader) -> tuple[float, float, float,
     )
 
 
+# ----------------------------------------------------------------------------
+# Saved results: <run folder>/history.json (config, data fingerprint and history)
+# ----------------------------------------------------------------------------
+
+
+def load_finished(run_dir: str, cfg: RunConfig, data: Data) -> RunHistory | None:
+    # History of a finished run, or None if it was not trained with this configuration and data.
+    history_file = os.path.join(run_dir, "history.json")
+    if not os.path.exists(history_file):
+        return None
+    with open(history_file) as f:
+        saved = json.load(f)
+    try:  # settings that were not saved yet have their default value
+        same_config = RunConfig.model_validate(saved["config"]) == cfg
+        history = RunHistory.model_validate(saved["history"])
+    except ValidationError:
+        return None
+    return history if same_config and saved.get("data") == data.data_id else None
+
+
+def save_run(run_dir: str, cfg: RunConfig, data: Data, history: RunHistory) -> None:
+    # Save what load_finished needs to recognise the run later.
+    os.makedirs(run_dir, exist_ok=True)
+    with open(os.path.join(run_dir, "history.json"), "w") as f:
+        json.dump(
+            {
+                "config": cfg.model_dump(),
+                "data": data.data_id,
+                "history": history.model_dump(),
+            },
+            f,
+        )
+
+
+def load_history(name: str, seed: int) -> RunHistory:
+    with open(os.path.join(run_path(name, seed), "history.json")) as f:
+        return RunHistory.model_validate(json.load(f)["history"])
+
+
+# ----------------------------------------------------------------------------
+# The run
+# ----------------------------------------------------------------------------
+
+
+def should_stop(cfg: RunConfig, epoch: int, best_epoch: int) -> bool:
+    # Early stopping: `patience` epochs of the last training stage (after the head-only epochs)
+    # without a better validation macro-F1. The last epoch never counts as an early stop.
+    last_stage_start = cfg.head_epochs if cfg.head_epochs < cfg.epochs else 0
+    epochs_without_gain = epoch - max(best_epoch, last_stage_start - 1)
+    return (
+        bool(cfg.patience)
+        and epoch + 1 < cfg.epochs
+        and epochs_without_gain >= cfg.patience
+    )
+
+
 def run(name: str, cfg: RunConfig, seed: int, data: Data) -> RunHistory:
     # Train one configuration with one seed (or load it if it was trained before). Returns the history.
     run_dir = run_path(name, seed)
@@ -204,8 +228,6 @@ def run(name: str, cfg: RunConfig, seed: int, data: Data) -> RunHistory:
     scaler = torch.amp.GradScaler("cuda", enabled=USE_AMP)
     history = RunHistory()
     best_f1, best_epoch = -1.0, -1
-    # early stopping is only considered in the last training stage (after the head-only epochs)
-    last_stage_start = cfg.head_epochs if cfg.head_epochs < cfg.epochs else 0
 
     for epoch in range(cfg.epochs):
         if epoch in (0, cfg.head_epochs):
@@ -242,26 +264,12 @@ def run(name: str, cfg: RunConfig, seed: int, data: Data) -> RunHistory:
             os.makedirs(run_dir, exist_ok=True)
             torch.save(model.state_dict(), os.path.join(run_dir, "best.pt"))
 
-        # early stopping: `patience` epochs of the last stage without a better validation macro-F1
-        epochs_without_gain = epoch - max(best_epoch, last_stage_start - 1)
-        if (
-            cfg.patience
-            and epoch + 1 < cfg.epochs
-            and epochs_without_gain >= cfg.patience
-        ):
+        if should_stop(cfg, epoch, best_epoch):
             print(f"Early stopping: no improvement for {cfg.patience} epochs")
             break
 
     history.stopped_early = len(history.val_f1) < cfg.epochs
-    with open(os.path.join(run_dir, "history.json"), "w") as f:
-        json.dump(
-            {
-                "config": cfg.model_dump(),
-                "data": data.data_id,
-                "history": history.model_dump(),
-            },
-            f,
-        )
+    save_run(run_dir, cfg, data, history)
     print(
         f"Best val macro-F1: {best_f1:.4f} (epoch {best_epoch + 1} of {len(history.val_f1)})"
     )
@@ -273,73 +281,3 @@ def run_seeds(
 ) -> list[RunHistory]:
     # Train (or load) a run name with every training seed.
     return [run(name, config_of(name), seed, data) for seed in seeds]
-
-
-def load_model(name: str, seed: int) -> nn.Module:
-    # Rebuild a model and load its best checkpoint.
-    # the checkpoint holds all weights
-    model = build_model(config_of(name), pretrained=False)
-    state = torch.load(
-        os.path.join(run_path(name, seed), "best.pt"), map_location="cpu"
-    )
-    model.load_state_dict(state)
-    return model.to(device).eval()
-
-
-def load_history(name: str, seed: int) -> RunHistory:
-    with open(os.path.join(run_path(name, seed), "history.json")) as f:
-        return RunHistory.model_validate(json.load(f)["history"])
-
-
-def fingerprint(images: torch.Tensor) -> str:
-    return hashlib.md5(images.numpy().tobytes()).hexdigest()[:10]  # noqa: S324
-
-
-def cached_arrays(
-    name: str, seed: int, jobs: dict[str, Callable[[nn.Module], np.ndarray]]
-) -> dict[str, np.ndarray]:
-    # Results of one run, cached as <run>/preds/<file>: jobs = {file name: compute(model) -> array}.
-    # The model is loaded only if a file is missing; later notebooks reuse the files.
-    pred_dir = os.path.join(run_path(name, seed), "preds")
-    model, results = None, {}
-    for file, compute in jobs.items():
-        path = os.path.join(pred_dir, file)
-        if not os.path.exists(path):
-            if model is None:
-                model = load_model(name, seed)
-            os.makedirs(pred_dir, exist_ok=True)
-            np.save(path, compute(model))
-        results[file] = np.load(path)
-    return results
-
-
-def predict_probs(
-    names: Iterable[str],
-    image_sets: dict[str, torch.Tensor],
-    seeds: Sequence[int] = TRAIN_CONFIG["seeds"],
-) -> dict[tuple[str, int, str], np.ndarray]:
-    # Softmax probabilities for every (model, seed, test set): {(name, seed, set name): (N, K) array}.
-    # They are cached in <run>/preds/, keyed by the image content.
-    files = {s: f"{safe_name(s)}_{fingerprint(i)}.npy" for s, i in image_sets.items()}
-    jobs = {
-        files[s]: lambda model, images=images: predict(model, eval_loader(images))[0]
-        .softmax(1)
-        .numpy()
-        for s, images in image_sets.items()
-    }
-    probs = {}
-    for name in names:
-        for seed in seeds:
-            arrays = cached_arrays(name, seed, jobs)
-            for set_name in image_sets:
-                probs[(name, seed, set_name)] = arrays[files[set_name]]
-    return probs
-
-
-def predict_labels(
-    names: Iterable[str],
-    image_sets: dict[str, torch.Tensor],
-    seeds: Sequence[int] = TRAIN_CONFIG["seeds"],
-) -> dict[tuple[str, int, str], np.ndarray]:
-    # Like predict_probs, but the predicted classes.
-    return {k: p.argmax(1) for k, p in predict_probs(names, image_sets, seeds).items()}

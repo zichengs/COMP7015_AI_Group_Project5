@@ -9,6 +9,7 @@ can be overridden with environment variables, e.g. ``EPOCHS_CNN=1 SEEDS=62`` for
 
 import json
 import os
+import re
 from typing import Any
 
 env = os.environ.get
@@ -85,3 +86,13 @@ with open(os.path.join(PATHS_CONFIG["out_dir"], "config.json"), "w") as f:
 def out_path(name: str) -> str:
     # Path of a table or figure in the output folder.
     return os.path.join(PATHS_CONFIG["out_dir"], name)
+
+
+def safe_name(name: str) -> str:
+    # File-system safe version of a run or test-set name, e.g. 'ViT-B/16' -> 'ViT-B_16'.
+    return re.sub(r"[^\w.=+-]+", "_", name)
+
+
+def run_path(name: str, seed: int) -> str:
+    # Folder of one training run: its checkpoint, history and cached predictions.
+    return os.path.join(PATHS_CONFIG["runs_dir"], safe_name(name) + f"__seed{seed}")

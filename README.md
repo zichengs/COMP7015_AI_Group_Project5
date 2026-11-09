@@ -86,7 +86,8 @@ The notebooks show the steps and the results. The shared code is in the `plantdi
 | `models.py` | custom CNN with SE attention, ResNet18, ViT-B/16, freezing for the fine-tuning strategies |
 | `recipe.py` | `RunConfig`, the pydantic model of one training run (which settings exist, their types and allowed values) |
 | `experiments.py` | registry of the experiments defined in notebooks 02 and 03 (`outputs/experiments.json`), derived runs of Sections 15 and 18, the selected models |
-| `train.py` | training engine (AdamW, schedules, two-stage fine-tuning with separate head/backbone learning rates, checkpoints, training cost), cached predictions |
+| `train.py` | training engine (AdamW, schedules, two-stage fine-tuning with separate head/backbone learning rates, early stopping, checkpoints, saved history and training cost) |
+| `predictions.py` | rebuild a model from a finished run (best checkpoint), predictions with an on-disk cache |
 | `evaluate.py` | macro-F1, mean ± sd over seeds, same-seed comparisons, stable errors, Grad-CAM, latency and training cost, calibration |
 | `plots.py` | plotting helpers |
 
