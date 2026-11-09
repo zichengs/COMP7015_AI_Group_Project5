@@ -43,16 +43,6 @@
       63,
       64
     ],
-    "epochs": {
-      "cnn": 50,
-      "resnet18": 16,
-      "vit_b_16": 15
-    },
-    "patience": {
-      "cnn": 5,
-      "resnet18": 5,
-      "vit_b_16": 5
-    },
     "swap_prob": 0.5
   }
 }

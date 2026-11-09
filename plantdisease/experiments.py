@@ -3,7 +3,7 @@
 import json
 import os
 
-from .config import TRAIN_CONFIG, out_path
+from .config import TRAIN_CONFIG, env, out_path
 from .recipe import RunConfig
 
 # ----------------------------------------------------------------------------
@@ -18,8 +18,8 @@ BASE_CNN = RunConfig(
     class_weights=True,
     scheduler="cosine",
     weight_decay=1e-4,
-    epochs=TRAIN_CONFIG["epochs"]["cnn"],
-    patience=TRAIN_CONFIG["patience"]["cnn"],
+    epochs=int(env("EPOCHS_CNN", 50)),
+    patience=int(env("PATIENCE_CNN", 5)),
 )
 cnn_configs = {
     "SE-CNN (full recipe)": BASE_CNN,
@@ -41,8 +41,8 @@ BASE_RESNET = RunConfig(
     class_weights=True,
     scheduler="cosine",
     weight_decay=1e-4,
-    epochs=TRAIN_CONFIG["epochs"]["resnet18"],
-    patience=TRAIN_CONFIG["patience"]["resnet18"],
+    epochs=int(env("EPOCHS_RESNET", 16)),
+    patience=int(env("PATIENCE_RESNET", 5)),
     head_epochs=1,
     head_lr=1e-3,
 )
@@ -65,7 +65,7 @@ resnet_configs = {
 # 3 epochs train only the new head (lr 1e-3); then the head continues at 1e-4 and the unfrozen
 # backbone parameters train at 1e-5. AdamW (weight decay 0.01), constant learning rate, batch 16,
 # no class weights. The strategies differ only in which parameters are unfrozen after epoch 3.
-# Early stopping (TRAIN_CONFIG["patience"]) counts only the epochs after the head-only epochs.
+# Early stopping (`patience`) counts only the epochs after the head-only epochs.
 # ----------------------------------------------------------------------------
 BASE_VIT = RunConfig(
     arch="vit_b_16",
@@ -75,8 +75,8 @@ BASE_VIT = RunConfig(
     finetune_head_lr=1e-4,  # classifier head after the head epochs
     head_lr=1e-3,  # classifier head during the head epochs
     head_epochs=3,
-    epochs=TRAIN_CONFIG["epochs"]["vit_b_16"],
-    patience=TRAIN_CONFIG["patience"]["vit_b_16"],
+    epochs=int(env("EPOCHS_VIT", 15)),
+    patience=int(env("PATIENCE_VIT", 5)),
     batch_size=16,
     weight_decay=0.01,
     scheduler="constant",

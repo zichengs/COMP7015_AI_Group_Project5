@@ -2,9 +2,9 @@
 
 The settings are split into four dictionaries: ``PATHS_CONFIG`` (where data and results live),
 ``DATA_CONFIG`` (the PlantVillage protocol), ``PLANTDOC_CONFIG`` (the PlantDoc field photos) and
-``TRAIN_CONFIG`` (seeds, epochs, early stopping). The model recipes are in ``experiments.py``, the
-device is in ``device.py``. Paths, epochs and seeds can be overridden with environment variables,
-e.g. ``EPOCHS_CNN=1 SEEDS=62`` for a quick test.
+``TRAIN_CONFIG`` (training seeds, background-swap probability). The model recipes, with their epochs
+and early stopping, are in ``experiments.py``, the device is in ``device.py``. Paths, epochs and seeds
+can be overridden with environment variables, e.g. ``EPOCHS_CNN=1 SEEDS=62`` for a quick test.
 """
 
 import json
@@ -59,19 +59,6 @@ PLANTDOC_CONFIG: dict[str, Any] = {
 
 TRAIN_CONFIG: dict[str, Any] = {
     "seeds": [int(s) for s in env("SEEDS", "62,63,64").split(",")],  # training seeds of the final models
-    # maximum epochs per architecture
-    "epochs": {
-        "cnn": int(env("EPOCHS_CNN", 50)),
-        "resnet18": int(env("EPOCHS_RESNET", 16)),
-        "vit_b_16": int(env("EPOCHS_VIT", 15)),
-    },
-    # early stopping: stop after this many epochs without a better validation macro-F1
-    # (counted from the start of the last training stage; 0 = train all epochs)
-    "patience": {
-        "cnn": int(env("PATIENCE_CNN", 5)),
-        "resnet18": int(env("PATIENCE_RESNET", 5)),
-        "vit_b_16": int(env("PATIENCE_VIT", 5)),
-    },
     # background swap of Section 18: share of the training photos whose background is replaced
     "swap_prob": 0.5,
 }
