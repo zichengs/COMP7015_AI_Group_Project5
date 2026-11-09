@@ -14,7 +14,7 @@ Without uv: `pip install torch torchvision scikit-learn scipy pandas matplotlib 
 
 The code runs on an NVIDIA GPU (CUDA, with mixed precision), on Apple silicon (MPS) and on the CPU; the device is chosen automatically.
 
-The dataset is downloaded by the first notebook: a sparse git checkout of the four tomato folders of `raw/color` and `raw/segmented`, plus `leaf-map.json`. Section 19.2 also downloads the matching folders of [PlantDoc](https://github.com/pratikkayal/PlantDoc-Dataset). It is skipped if the download fails.
+The dataset is downloaded by the first notebook: a sparse git checkout of the four tomato folders of `raw/color` and `raw/segmented`, plus `leaf-map.json`. Section 19.2 also downloads the matching folders of [PlantDoc](https://github.com/pratikkayal/PlantDoc-Dataset). It is skipped if the download fails. Notebook 07 adds the `raw/color` folders of the other tomato diseases and other crops, and the PlantDoc folders outside the four classes.
 
 ## Running
 
@@ -28,10 +28,11 @@ Run the notebooks in order, from the repository root:
 | `04_test_evaluation.ipynb` | 11–13 | test results of the final models over 3 seeds, compute trade-offs (inference and training cost), error analysis, Grad-CAM |
 | `05_robustness.ipynb` | 14–20 | robustness to background removal, grayscale, lighting, blur and noise; ViT retrained on grayscale and background-removed photos; the same leaf on other backgrounds; leaf attention; countermeasure (random backgrounds); left-out photo series and PlantDoc field photos; confidence and abstention |
 | `06_discussion.ipynb` | 21–22 | all key tables in one place, discussion |
+| `07_open_set.ipynb` | 23–30 | extension: the classes *Other disease* and *Other crop*; the three selected recipes trained on six classes and compared with the four-class models (tomato test, robustness, left-out series and field photos, rejection of other diseases and crops, including some never seen in training) |
 
 Every training run is saved under `outputs/runs/<run>__seed<seed>/`: the best checkpoint, the history (including training time, peak memory and whether it stopped early) and the configuration. Re-running a notebook loads finished runs instead of retraining them, and it reuses cached predictions. So an interrupted run can simply be resumed, and every notebook can be re-run on its own once the earlier ones have run. Notebooks 02 and 03 write the selected models to `outputs/final_models.json`.
 
-A GPU is recommended: the full run trains about 60 models (18 of them ViTs). For a quick end-to-end test, write to a separate output folder:
+A GPU is recommended: the full run trains about 70 models (21 of them ViTs). For a quick end-to-end test, write to a separate output folder:
 
 ```bash
 EPOCHS_CNN=1 EPOCHS_RESNET=2 EPOCHS_VIT=4 SEEDS=62 OUT_DIR=./outputs_quick jupyter lab
@@ -44,13 +45,19 @@ EPOCHS_CNN=1 EPOCHS_RESNET=2 EPOCHS_VIT=4 SEEDS=62 OUT_DIR=./outputs_quick jupyt
 - **Data.** One photo series per class with official leaf ids (`RS_HL`, `RS_Erly.B`, `Crnl_L.Mold`, `Com.G_SpM_FL`). The official leaf ids of every class are split 70/15/15 with a fixed seed, and the audit checks that no leaf id crosses splits. The healthy series `GH_HL` has no leaf ids and is used only as a left-out series test.
 - **Preprocessing.** Every photo is resized to 224×224 once and cached. Training augmentation: flips, 90° rotations, ±10% brightness/contrast.
 - **ViT** (Zhouyang's protocol). 3 epochs train only the new head (lr 1e-3). Then the head (lr 1e-4) and the unfrozen backbone (lr 1e-5) train for up to 12 more epochs. AdamW with weight decay 0.01, constant learning rate, batch 16, no class weights. Three strategies: head only, partial (last 2 blocks + final LayerNorm) and full fine-tuning.
-- **Early stopping.** Every run stops when the validation macro-F1 has not improved for `patience` epochs of its last training stage (CNN 10, ResNet18 5, ViT 5); the checkpoint of the best epoch is kept.
+- **Early stopping.** Every run stops when the validation macro-F1 has not improved for `patience` epochs of its last training stage (5 epochs for every model, `TRAIN.patience`); the checkpoint of the best epoch is kept.
 - **Uncertainty.** Every model is trained with seeds 62, 63 and 64 on one fixed split. Results are the mean ± sample standard deviation over the seeds, and models trained with the same seeds are compared seed by seed.
 - **Compute.** Parameters, checkpoint size and inference latency; trainable parameters, epochs trained, training time without validation, and peak memory during training (exact on CUDA, sampled on MPS).
 
 ## Configuration
 
-All settings live in one `CFG` dictionary in `plantdisease/config.py`. The configuration is saved to `OUT_DIR/config.json`. These environment variables override the defaults:
+The settings live in `plantdisease/config.py`, in three dictionaries:
+
+- `PATHS`: where the data, the image cache and the results live;
+- `DATA`: the dataset protocol (classes, training series, PlantDoc folders, image size, split seed and fractions, loader workers);
+- `TRAIN`: training seeds, maximum epochs and early-stopping patience per architecture, background-swap probability.
+
+The model recipes (learning rate, batch size, freezing, ...) are in `plantdisease/experiments.py`. All settings are saved to `OUT_DIR/config.json`. These environment variables override the defaults:
 
 | Variable | Default | Meaning |
 |---|---|---|
@@ -60,8 +67,8 @@ All settings live in one `CFG` dictionary in `plantdisease/config.py`. The confi
 | `FIELD_ROOT` | `./PlantDoc-Dataset` | PlantDoc checkout (Section 19.2) |
 | `SEEDS` | `62,63,64` | training seeds |
 | `EPOCHS_CNN`, `EPOCHS_RESNET`, `EPOCHS_VIT` | `50`, `16`, `15` | maximum training epochs |
-| `PATIENCE_CNN`, `PATIENCE_RESNET`, `PATIENCE_VIT` | `10`, `5`, `5` | early stopping: epochs without a better validation macro-F1 (0 = off) |
-| `NUM_WORKERS` | 4 on Linux, else 0 | data loader workers |
+| `PATIENCE_CNN`, `PATIENCE_RESNET`, `PATIENCE_VIT` | `5`, `5`, `5` | early stopping: epochs without a better validation macro-F1 (0 = off) |
+| `NUM_WORKERS` | `2` | data loader workers |
 
 Runs are deterministic: fixed seeds, deterministic algorithms, and a split seed that is separate from the training seeds.
 
@@ -71,13 +78,16 @@ The notebooks show the steps and the results. The shared code is in the `plantdi
 
 | Module | Content |
 |---|---|
-| `config.py` | `CFG`, seeds, device |
+| `config.py` | settings (`PATHS`, `DATA`, `TRAIN`), seeds |
+| `device.py` | device, mixed precision, determinism, `set_seed`, `synchronize` |
+| `leafmap.py` | leaf ids from `leaf-map.json` (also used by `database/build_db.py`) |
 | `data.py` | download, leaf grouping, image cache, split, segmented and grayscale versions, transforms, loaders, `prepare()` |
 | `backgrounds.py` | leaf masks, test variants, same-leaf background tests, background-swap dataset |
 | `models.py` | custom CNN with SE attention, ResNet18, ViT-B/16, freezing for the fine-tuning strategies |
 | `experiments.py` | the configurations of Sections 9, 10, 15 and 18, the selected models |
 | `train.py` | training engine (AdamW, schedules, two-stage fine-tuning with separate head/backbone learning rates, checkpoints, training cost), cached predictions |
 | `evaluate.py` | macro-F1, mean ± sd over seeds, same-seed comparisons, stable errors, Grad-CAM, latency and training cost, calibration |
+| `open_set.py` | notebook 07: the design of the classes *Other disease* and *Other crop*, held-out folders, six-class data, rejection rule |
 | `plots.py` | plotting helpers |
 
 `plant_disease_classification2.ipynb` and `plant_disease_classification3_julia.ipynb` are earlier single-notebook versions with different classes (bacterial spot and late blight instead of leaf mold and spider mites); they are kept for reference.

@@ -19,8 +19,9 @@ from torch.optim.lr_scheduler import CosineAnnealingLR
 from torch.utils.data import DataLoader
 
 from .backgrounds import BackgroundSwapDataset
-from .config import RUNS_DIR, SEEDS, USE_AMP, device, set_seed, synchronize
+from .config import RUNS_DIR, SEEDS
 from .data import CachedDataset, Data, eval_loader, eval_tf, make_loader, train_tf
+from .device import USE_AMP, device, set_seed, synchronize
 from .experiments import config_of
 from .models import build_model, count_params, is_head, set_trainable
 
@@ -90,23 +91,104 @@ def make_optimizer(model: nn.Module, cfg: dict[str, Any], stage: str) -> AdamW:
     return AdamW(groups, weight_decay=cfg["weight_decay"])
 
 
-def run(name: str, cfg: dict[str, Any], seed: int, data: Data) -> dict[str, Any]:  # noqa: PLR0915
+def load_finished(
+    run_dir: str, cfg: dict[str, Any], data: Data
+) -> dict[str, Any] | None:
+    # History of a finished run, or None if it was not trained with this configuration and data.
+    history_file = os.path.join(run_dir, "history.json")
+    if not os.path.exists(history_file):
+        return None
+    with open(history_file) as f:
+        saved = json.load(f)
+    if saved["config"] == cfg and saved.get("data") == data.data_id:
+        return saved["history"]
+    return None
+
+
+def start_stage(
+    model: nn.Module, cfg: dict[str, Any], epoch: int, steps_per_epoch: int
+) -> tuple[str, list[nn.Parameter], AdamW, CosineAnnealingLR | None]:
+    # Start of a training stage ("head" or "finetune"): set the trainable parameters and
+    # (re)build the optimizer and scheduler. The cosine schedule covers the stage.
+    stage = "head" if epoch < cfg["head_epochs"] else "finetune"
+    set_trainable(model, cfg, stage)
+    params = [p for p in model.parameters() if p.requires_grad]
+    optimizer = make_optimizer(model, cfg, stage)
+    scheduler = None
+    if cfg["scheduler"] == "cosine":
+        stage_end = cfg["head_epochs"] if stage == "head" else cfg["epochs"]
+        scheduler = CosineAnnealingLR(
+            optimizer, T_max=steps_per_epoch * (stage_end - epoch)
+        )
+    return stage, params, optimizer, scheduler
+
+
+def train_epoch(
+    model: nn.Module,
+    loader: DataLoader,
+    criterion: nn.Module,
+    optimizer: AdamW,
+    scheduler: CosineAnnealingLR | None,
+    scaler: torch.amp.GradScaler,
+    params: list[nn.Parameter],
+) -> tuple[float, float, float]:
+    # One training epoch. Returns loss, accuracy and the time (timed without validation, after the
+    # device has finished).
+    model.train()
+    running_loss, running_correct = 0.0, 0
+    synchronize()
+    tic = time.perf_counter()
+    for x_cpu, y_cpu in loader:
+        x, y = (
+            x_cpu.to(device, non_blocking=True),
+            y_cpu.to(device, non_blocking=True),
+        )
+        with torch.autocast(device.type, dtype=torch.float16, enabled=USE_AMP):
+            outputs = model(x)
+            loss = criterion(outputs, y)
+        optimizer.zero_grad(set_to_none=True)
+        scaler.scale(loss).backward()
+        scaler.unscale_(optimizer)
+        nn.utils.clip_grad_norm_(params, max_norm=1.0)
+        scaler.step(optimizer)
+        scaler.update()
+        if scheduler:
+            scheduler.step()
+        running_loss += loss.item() * x.size(0)
+        running_correct += (outputs.argmax(1) == y).sum().item()
+    synchronize()
+    seconds = time.perf_counter() - tic
+    n = len(loader.dataset)
+    return running_loss / n, running_correct / n, seconds
+
+
+def validate(model: nn.Module, loader: DataLoader) -> tuple[float, float, float, float]:
+    # Validation loss, accuracy, macro-F1 and the time.
+    tic = time.perf_counter()
+    logits, labels = predict(model, loader)
+    seconds = time.perf_counter() - tic
+    preds = logits.argmax(1)
+    return (
+        F.cross_entropy(logits, labels).item(),
+        accuracy_score(labels, preds),
+        f1_score(labels, preds, average="macro"),
+        seconds,
+    )
+
+
+def run(name: str, cfg: dict[str, Any], seed: int, data: Data) -> dict[str, Any]:
     # Train one configuration with one seed (or load it if it was trained before). Returns the history.
     run_dir = run_path(name, seed)
-    history_file = os.path.join(run_dir, "history.json")
-    if os.path.exists(history_file):
-        with open(history_file) as f:
-            saved = json.load(f)
-        if saved["config"] == cfg and saved.get("data") == data.data_id:
-            print(f"Loaded finished run: {name} (seed {seed})")
-            return saved["history"]
+    finished = load_finished(run_dir, cfg, data)
+    if finished is not None:
+        print(f"Loaded finished run: {name} (seed {seed})")
+        return finished
 
     print(f"\n===== {name} (seed {seed}) =====")
     # stale predictions
     shutil.rmtree(os.path.join(run_dir, "preds"), ignore_errors=True)
     set_seed(seed)
     model = build_model(cfg).to(device)
-    train_idx = data.train_idx
     train_loader = make_loader(train_dataset(cfg, data), cfg["batch_size"], seed=seed)
     val_images = data.input_images(
         cfg.get("input", "color")
@@ -116,71 +198,49 @@ def run(name: str, cfg: dict[str, Any], seed: int, data: Data) -> dict[str, Any]
         weight=data.class_weights.to(device) if cfg["class_weights"] else None
     )
     scaler = torch.amp.GradScaler("cuda", enabled=USE_AMP)
-    keys = ["train_loss", "train_acc", "val_loss", "val_acc", "val_f1", "lr"]
-    keys += ["train_time", "val_time", "epoch_time", "trainable_params"]
-    history = {k: [] for k in keys}
+    history = {
+        k: []
+        for k in (
+            "train_loss",
+            "train_acc",
+            "val_loss",
+            "val_acc",
+            "val_f1",
+            "lr",
+            "train_time",
+            "val_time",
+            "epoch_time",
+            "trainable_params",
+        )
+    }
     best_f1, best_epoch = -1.0, -1
     # early stopping is only considered in the last training stage (after the head-only epochs)
     last_stage_start = cfg["head_epochs"] if cfg["head_epochs"] < cfg["epochs"] else 0
     patience = cfg.get("patience", 0)
 
     for epoch in range(cfg["epochs"]):
-        # start of a training stage: (re)build optimizer and scheduler
         if epoch in (0, cfg["head_epochs"]):
-            stage = "head" if epoch < cfg["head_epochs"] else "finetune"
-            set_trainable(model, cfg, stage)
-            params = [p for p in model.parameters() if p.requires_grad]
-            optimizer = make_optimizer(model, cfg, stage)
-            stage_end = cfg["head_epochs"] if stage == "head" else cfg["epochs"]
-            scheduler = (
-                CosineAnnealingLR(
-                    optimizer, T_max=len(train_loader) * (stage_end - epoch)
-                )
-                if cfg["scheduler"] == "cosine"
-                else None
+            stage, params, optimizer, scheduler = start_stage(
+                model, cfg, epoch, len(train_loader)
             )
 
-        # phase one: training (timed without validation, after the device has finished)
-        model.train()
-        running_loss, running_correct = 0.0, 0
         history["lr"].append(optimizer.param_groups[0]["lr"])
         history["trainable_params"].append(count_params(model, trainable_only=True))
-        synchronize()
-        tic = time.perf_counter()
-        for x_cpu, y_cpu in train_loader:
-            x, y = (
-                x_cpu.to(device, non_blocking=True),
-                y_cpu.to(device, non_blocking=True),
-            )
-            with torch.autocast(device.type, dtype=torch.float16, enabled=USE_AMP):
-                outputs = model(x)
-                loss = criterion(outputs, y)
-            optimizer.zero_grad(set_to_none=True)
-            scaler.scale(loss).backward()
-            scaler.unscale_(optimizer)
-            nn.utils.clip_grad_norm_(params, max_norm=1.0)
-            scaler.step(optimizer)
-            scaler.update()
-            if scheduler:
-                scheduler.step()
-            running_loss += loss.item() * x.size(0)
-            running_correct += (outputs.argmax(1) == y).sum().item()
-        synchronize()
-        history["train_time"].append(time.perf_counter() - tic)
-        history["train_loss"].append(running_loss / len(train_idx))
-        history["train_acc"].append(running_correct / len(train_idx))
-
-        # phase two: validation
-        tic = time.perf_counter()
-        logits, labels = predict(model, val_loader)
-        history["val_time"].append(time.perf_counter() - tic)
-        history["epoch_time"].append(
-            history["train_time"][-1] + history["val_time"][-1]
+        train_loss, train_acc, train_time = train_epoch(
+            model, train_loader, criterion, optimizer, scheduler, scaler, params
         )
-        preds = logits.argmax(1)
-        history["val_loss"].append(F.cross_entropy(logits, labels).item())
-        history["val_acc"].append(accuracy_score(labels, preds))
-        history["val_f1"].append(f1_score(labels, preds, average="macro"))
+        val_loss, val_acc, val_f1, val_time = validate(model, val_loader)
+        for key, value in {
+            "train_loss": train_loss,
+            "train_acc": train_acc,
+            "train_time": train_time,
+            "val_loss": val_loss,
+            "val_acc": val_acc,
+            "val_f1": val_f1,
+            "val_time": val_time,
+            "epoch_time": train_time + val_time,
+        }.items():
+            history[key].append(value)
         print(
             f"Epoch {epoch + 1}/{cfg['epochs']} [{stage}] | train loss {history['train_loss'][-1]:.4f} acc {history['train_acc'][-1]:.4f}"
             f" | val loss {history['val_loss'][-1]:.4f} acc {history['val_acc'][-1]:.4f} macro-F1 {history['val_f1'][-1]:.4f}"
@@ -200,7 +260,7 @@ def run(name: str, cfg: dict[str, Any], seed: int, data: Data) -> dict[str, Any]
             break
 
     history["stopped_early"] = len(history["val_f1"]) < cfg["epochs"]
-    with open(history_file, "w") as f:
+    with open(os.path.join(run_dir, "history.json"), "w") as f:
         json.dump({"config": cfg, "data": data.data_id, "history": history}, f)
     print(
         f"Best val macro-F1: {best_f1:.4f} (epoch {best_epoch + 1} of {len(history['val_f1'])})"

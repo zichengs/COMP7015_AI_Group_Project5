@@ -1,6 +1,6 @@
 """Metrics, seed statistics, compute, Grad-CAM and other evaluation tools (Sections 9-20).
 
-Uncertainty follows Zhouyang's protocol: every model is trained with the seeds of TRAIN.seeds on one
+Uncertainty follows Zhouyang's protocol: every model is trained with the seeds of TRAIN["seeds"] on one
 fixed split; results are the mean ± sample standard deviation over these seeds. Two models trained
 with the same seed are compared seed by seed ("higher in k of n seeds"). The standard deviation
 covers the randomness of training, not the choice of test leaves.
@@ -20,8 +20,9 @@ import torch.nn.functional as F  # noqa: N812
 from sklearn.metrics import f1_score
 from torch import nn
 
-from .config import DATA, SEEDS, USE_AMP, device, synchronize
+from .config import DATA, SEEDS
 from .data import eval_tf
+from .device import USE_AMP, device, synchronize
 from .experiments import config_of
 from .models import LAYER_OF, count_params
 from .train import cached_arrays, fingerprint, load_history, load_model, safe_name
@@ -94,7 +95,7 @@ def stable_errors(
 # ----------------------------------------------------------------------------
 def measure_latency(model: nn.Module, batch_size: int, repeats: int = 20) -> float:
     # Inference time in ms per image on the current device, after a warm-up.
-    x = torch.randn(batch_size, 3, DATA.img_size, DATA.img_size, device=device)
+    x = torch.randn(batch_size, 3, DATA["img_size"], DATA["img_size"], device=device)
     with (
         torch.no_grad(),
         torch.autocast(device.type, dtype=torch.float16, enabled=USE_AMP),

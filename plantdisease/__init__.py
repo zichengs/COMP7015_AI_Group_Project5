@@ -2,7 +2,8 @@
 
 Shared code of the notebooks 01-05:
 
-- ``config``      settings (PATHS, DATA, TRAIN), seeds, device
+- ``config``      settings (PATHS, DATA, TRAIN), seeds
+- ``device``      device, mixed precision, determinism, set_seed, synchronize
 - ``data``        download, leaf grouping, image cache, near-duplicates, split, loaders
 - ``backgrounds`` leaf masks, test variants, same-leaf background tests, background swap
 - ``models``      custom CNN with SE attention, ResNet18, ViT-B/16
