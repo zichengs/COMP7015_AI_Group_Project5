@@ -1,101 +1,49 @@
-"""Experiment configurations (Sections 9, 10, 15 and 18) and the selected final models."""
+"""Run names and recipes: derived runs (Sections 15 and 18), the experiments that the notebooks
+register, and the selected final models."""
 
 import json
 import os
 
-from .config import TRAIN_CONFIG, env, out_path
+from .config import TRAIN_CONFIG, out_path
 from .recipe import RunConfig
 
-# ----------------------------------------------------------------------------
-# Section 9: custom CNN and ResNet18
-# ----------------------------------------------------------------------------
-BASE_CNN = RunConfig(
-    arch="se_cnn",
-    lr=1e-3,
-    batch_size=32,
-    dropout=0.3,
-    augment=True,
-    class_weights=True,
-    scheduler="cosine",
-    weight_decay=1e-4,
-    epochs=int(env("EPOCHS_CNN", 50)),
-    patience=int(env("PATIENCE_CNN", 5)),
-)
-cnn_configs = {
-    "SE-CNN (full recipe)": BASE_CNN,
-    "SE-CNN lr=3e-4": BASE_CNN.variant(lr=3e-4),
-    "SE-CNN lr=3e-3": BASE_CNN.variant(lr=3e-3),
-    "CNN (no attention)": BASE_CNN.variant(arch="cnn"),
-    "SE-CNN no augmentation": BASE_CNN.variant(augment=False),
-    "SE-CNN no dropout": BASE_CNN.variant(dropout=0.0),
-    "SE-CNN no class weights": BASE_CNN.variant(class_weights=False),
-    "SE-CNN constant lr": BASE_CNN.variant(scheduler="constant"),
-    "SE-CNN batch size 64": BASE_CNN.variant(batch_size=64),
-}
-
-BASE_RESNET = RunConfig(
-    arch="resnet18",
-    lr=1e-4,
-    batch_size=32,
-    augment=True,
-    class_weights=True,
-    scheduler="cosine",
-    weight_decay=1e-4,
-    epochs=int(env("EPOCHS_RESNET", 16)),
-    patience=int(env("PATIENCE_RESNET", 5)),
-    head_epochs=1,
-    head_lr=1e-3,
-)
-resnet_configs = {
-    "ResNet18 frozen backbone": BASE_RESNET.variant(
-        head_epochs=BASE_RESNET.epochs, scheduler="constant"
-    ),
-    "ResNet18 full FT, constant lr": BASE_RESNET.variant(
-        head_epochs=0, scheduler="constant"
-    ),
-    "ResNet18 two-stage + cosine, lr=1e-4": BASE_RESNET,
-    "ResNet18 two-stage + cosine, lr=3e-4": BASE_RESNET.variant(lr=3e-4),
-    "ResNet18 batch size 64": BASE_RESNET.variant(batch_size=64),
-    "ResNet18 no augmentation": BASE_RESNET.variant(augment=False),
-    "ResNet18 weight decay 1e-2": BASE_RESNET.variant(weight_decay=1e-2),
-}
-
-# ----------------------------------------------------------------------------
-# Section 10: ViT-B/16 fine-tuning strategies (Zhouyang's protocol)
-# 3 epochs train only the new head (lr 1e-3); then the head continues at 1e-4 and the unfrozen
-# backbone parameters train at 1e-5. AdamW (weight decay 0.01), constant learning rate, batch 16,
-# no class weights. The strategies differ only in which parameters are unfrozen after epoch 3.
-# Early stopping (`patience`) counts only the epochs after the head-only epochs.
-# ----------------------------------------------------------------------------
-BASE_VIT = RunConfig(
-    arch="vit_b_16",
-    finetune="partial",
-    trainable_blocks=2,
-    lr=1e-5,  # unfrozen backbone parameters (after the head epochs)
-    finetune_head_lr=1e-4,  # classifier head after the head epochs
-    head_lr=1e-3,  # classifier head during the head epochs
-    head_epochs=3,
-    epochs=int(env("EPOCHS_VIT", 15)),
-    patience=int(env("PATIENCE_VIT", 5)),
-    batch_size=16,
-    weight_decay=0.01,
-    scheduler="constant",
-    class_weights=False,
-    augment=True,
-)
-vit_configs = {
-    "ViT-B/16 head only": BASE_VIT.variant(finetune="head"),
-    "ViT-B/16 partial (last 2 blocks)": BASE_VIT,
-    "ViT-B/16 full fine-tuning": BASE_VIT.variant(finetune="full"),
-    "ViT-B/16 partial, no augmentation": BASE_VIT.variant(augment=False),
-}
-ALL_CONFIGS: dict[str, RunConfig] = {**cnn_configs, **resnet_configs, **vit_configs}
 TUNING_SEED = 62
+
+# ----------------------------------------------------------------------------
+# The experiments (tuning runs, ablations, strategies) are defined in notebooks 02 and 03 and
+# registered with `register`. They are kept in OUT_DIR/experiments.json, so that every notebook finds
+# the recipe of a run name without running notebooks 02 and 03 again.
+# ----------------------------------------------------------------------------
+EXPERIMENTS_FILE = out_path("experiments.json")
+_registry: dict[str, RunConfig] = {}
+
+
+def register(experiments: dict[str, RunConfig]) -> None:
+    # Make the experiments known by name to this and to the other notebooks.
+    _registry.update(experiments)
+    saved = {}
+    if os.path.exists(EXPERIMENTS_FILE):
+        with open(EXPERIMENTS_FILE) as f:
+            saved = json.load(f)
+    saved.update({name: cfg.model_dump() for name, cfg in experiments.items()})
+    with open(EXPERIMENTS_FILE, "w") as f:
+        json.dump(saved, f, indent=2)
+
+
+def _registered(name: str) -> RunConfig:
+    if name not in _registry and os.path.exists(EXPERIMENTS_FILE):
+        with open(EXPERIMENTS_FILE) as f:
+            for saved_name, cfg in json.load(f).items():
+                _registry.setdefault(saved_name, RunConfig.model_validate(cfg))
+    if name not in _registry:
+        raise KeyError(f"unknown run '{name}': run notebooks 02 and 03 first")
+    return _registry[name]
+
 
 # ----------------------------------------------------------------------------
 # Derived runs: '<selected model> + <suffix>' = the selected configuration with a change
 #   Section 15: the ViT retrained on another input version (trained and validated on that version)
-#   Section 18: CNN / ResNet18 retrained with random backgrounds (countermeasure) or
+#   Section 18: CNN / ResNet18 / ViT retrained with random backgrounds (countermeasure) or
 #               class-matched backgrounds (control)
 # ----------------------------------------------------------------------------
 INPUT_TRAINING = {
@@ -127,13 +75,13 @@ def open_set_name(base: str) -> str:
 
 
 def config_of(name: str) -> RunConfig:
-    # Configuration of a run name (tuning runs, final models and derived runs). Suffixes can be
-    # combined, e.g. '<model> + background-removed training + 6 classes' (notebook 07).
+    # Configuration of a run name (registered experiments, final models and derived runs). Suffixes
+    # can be combined, e.g. '<model> + background-removed training + 6 classes' (notebook 07).
     for suffix, change in DERIVED.items():
         base = name.removesuffix(f" + {suffix}")
         if base != name:
             return config_of(base).variant(**change)
-    return ALL_CONFIGS[name]
+    return _registered(name)
 
 
 # ----------------------------------------------------------------------------

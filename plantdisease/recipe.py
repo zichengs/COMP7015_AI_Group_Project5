@@ -47,3 +47,8 @@ class RunConfig(BaseModel):
     def variant(self, **changes: Any) -> Self:
         # The same recipe with some settings changed (validated again).
         return type(self).model_validate({**self.model_dump(), **changes})
+
+    def changes_from(self, base: "RunConfig") -> dict[str, Any]:
+        # The settings that differ from `base`, e.g. {"lr": 0.0003} for base.variant(lr=3e-4).
+        base_values = base.model_dump()
+        return {k: v for k, v in self.model_dump().items() if v != base_values[k]}

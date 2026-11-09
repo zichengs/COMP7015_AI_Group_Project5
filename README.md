@@ -45,7 +45,7 @@ EPOCHS_CNN=1 EPOCHS_RESNET=2 EPOCHS_VIT=4 SEEDS=62 OUT_DIR=./outputs_quick jupyt
 - **Data.** One photo series per class with official leaf ids (`RS_HL`, `RS_Erly.B`, `Crnl_L.Mold`, `Com.G_SpM_FL`). The official leaf ids of every class are split 70/15/15 with a fixed seed, and the audit checks that no leaf id crosses splits. The healthy series `GH_HL` has no leaf ids and is used only as a left-out series test.
 - **Preprocessing.** Every photo is resized to 224×224 once and cached. Training augmentation: flips, 90° rotations, ±10% brightness/contrast.
 - **ViT** (Zhouyang's protocol). 3 epochs train only the new head (lr 1e-3). Then the head (lr 1e-4) and the unfrozen backbone (lr 1e-5) train for up to 12 more epochs. AdamW with weight decay 0.01, constant learning rate, batch 16, no class weights. Three strategies: head only, partial (last 2 blocks + final LayerNorm) and full fine-tuning.
-- **Early stopping.** Every run stops when the validation macro-F1 has not improved for `patience` epochs of its last training stage (5 epochs for every model, `patience` in `plantdisease/experiments.py`); the checkpoint of the best epoch is kept.
+- **Early stopping.** Every run stops when the validation macro-F1 has not improved for `patience` epochs of its last training stage (5 epochs for every model, `patience` of the recipes in notebooks 02 and 03); the checkpoint of the best epoch is kept.
 - **Uncertainty.** Every model is trained with seeds 62, 63 and 64 on one fixed split. Results are the mean ± sample standard deviation over the seeds, and models trained with the same seeds are compared seed by seed.
 - **Compute.** Parameters, checkpoint size and inference latency; trainable parameters, epochs trained, training time without validation, and peak memory during training (exact on CUDA, sampled on MPS).
 
@@ -56,9 +56,9 @@ The settings live in `plantdisease/config.py`, in four dictionaries:
 - `PATHS_CONFIG`: where the data, the image cache and the results live;
 - `DATA_CONFIG`: the PlantVillage protocol (classes, training series, image size, split seed and fractions, loader workers);
 - `PLANTDOC_CONFIG`: the PlantDoc field photos (folder, repository URL, folder of each class);
-- `TRAIN_CONFIG`: training seeds and the background-swap probability. The maximum epochs and the early-stopping patience are part of each model recipe in `plantdisease/experiments.py`.
+- `TRAIN_CONFIG`: training seeds and the background-swap probability. The maximum epochs and the early-stopping patience are part of each model recipe (notebooks 02 and 03).
 
-The model recipes (learning rate, batch size, freezing, ...) are in `plantdisease/experiments.py`; the settings a recipe can have are defined by `RunConfig` in `plantdisease/recipe.py`. All settings are saved to `OUT_DIR/config.json`. These environment variables override the defaults:
+The model recipes (learning rate, batch size, freezing, epochs, ...) are defined in notebooks 02 and 03, right before the experiments are run; the settings a recipe can have are defined by `RunConfig` in `plantdisease/recipe.py`. All settings are saved to `OUT_DIR/config.json`. These environment variables override the defaults:
 
 | Variable | Default | Meaning |
 |---|---|---|
@@ -86,7 +86,7 @@ The notebooks show the steps and the results. The shared code is in the `plantdi
 | `backgrounds.py` | leaf masks, test variants, same-leaf background tests, background-swap dataset |
 | `models.py` | custom CNN with SE attention, ResNet18, ViT-B/16, freezing for the fine-tuning strategies |
 | `recipe.py` | `RunConfig`, the pydantic model of one training run (which settings exist, their types and allowed values) |
-| `experiments.py` | the configurations of Sections 9, 10, 15 and 18 (built from `RunConfig`), the selected models |
+| `experiments.py` | registry of the experiments defined in notebooks 02 and 03 (`outputs/experiments.json`), derived runs of Sections 15 and 18, the selected models |
 | `train.py` | training engine (AdamW, schedules, two-stage fine-tuning with separate head/backbone learning rates, checkpoints, training cost), cached predictions |
 | `evaluate.py` | macro-F1, mean ± sd over seeds, same-seed comparisons, stable errors, Grad-CAM, latency and training cost, calibration |
 | `open_set.py` | notebook 07: the design of the classes *Other disease* and *Other crop*, held-out folders, six-class data, rejection rule |
