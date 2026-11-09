@@ -5,7 +5,7 @@ from typing import Any
 from torch import Tensor, nn
 from torchvision import models
 
-from .config import CLASSES
+from .config import DATA_CONFIG
 
 
 class SEBlock(nn.Module):
@@ -57,7 +57,7 @@ class CustomCNN(nn.Module):
 
 def build_model(cfg: dict[str, Any], pretrained: bool = True) -> nn.Module:
     # number of outputs: the four classes, or more for the open-set runs of notebook 07
-    k = cfg.get("num_classes", len(CLASSES))
+    k = cfg.get("num_classes", len(DATA_CONFIG["classes"]))
     if cfg["arch"] in ("cnn", "se_cnn"):
         return CustomCNN(k, cfg["dropout"], attention=cfg["arch"] == "se_cnn")
     if cfg["arch"] == "resnet18":

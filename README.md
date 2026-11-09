@@ -45,17 +45,18 @@ EPOCHS_CNN=1 EPOCHS_RESNET=2 EPOCHS_VIT=4 SEEDS=62 OUT_DIR=./outputs_quick jupyt
 - **Data.** One photo series per class with official leaf ids (`RS_HL`, `RS_Erly.B`, `Crnl_L.Mold`, `Com.G_SpM_FL`). The official leaf ids of every class are split 70/15/15 with a fixed seed, and the audit checks that no leaf id crosses splits. The healthy series `GH_HL` has no leaf ids and is used only as a left-out series test.
 - **Preprocessing.** Every photo is resized to 224×224 once and cached. Training augmentation: flips, 90° rotations, ±10% brightness/contrast.
 - **ViT** (Zhouyang's protocol). 3 epochs train only the new head (lr 1e-3). Then the head (lr 1e-4) and the unfrozen backbone (lr 1e-5) train for up to 12 more epochs. AdamW with weight decay 0.01, constant learning rate, batch 16, no class weights. Three strategies: head only, partial (last 2 blocks + final LayerNorm) and full fine-tuning.
-- **Early stopping.** Every run stops when the validation macro-F1 has not improved for `patience` epochs of its last training stage (5 epochs for every model, `TRAIN.patience`); the checkpoint of the best epoch is kept.
+- **Early stopping.** Every run stops when the validation macro-F1 has not improved for `patience` epochs of its last training stage (5 epochs for every model, `TRAIN_CONFIG["patience"]`); the checkpoint of the best epoch is kept.
 - **Uncertainty.** Every model is trained with seeds 62, 63 and 64 on one fixed split. Results are the mean ± sample standard deviation over the seeds, and models trained with the same seeds are compared seed by seed.
 - **Compute.** Parameters, checkpoint size and inference latency; trainable parameters, epochs trained, training time without validation, and peak memory during training (exact on CUDA, sampled on MPS).
 
 ## Configuration
 
-The settings live in `plantdisease/config.py`, in three dictionaries:
+The settings live in `plantdisease/config.py`, in four dictionaries:
 
-- `PATHS`: where the data, the image cache and the results live;
-- `DATA`: the dataset protocol (classes, training series, PlantDoc folders, image size, split seed and fractions, loader workers);
-- `TRAIN`: training seeds, maximum epochs and early-stopping patience per architecture, background-swap probability.
+- `PATHS_CONFIG`: where the data, the image cache and the results live;
+- `DATA_CONFIG`: the PlantVillage protocol (classes, training series, image size, split seed and fractions, loader workers);
+- `PLANTDOC_CONFIG`: the PlantDoc field photos (folder, repository URL, folder of each class);
+- `TRAIN_CONFIG`: training seeds, maximum epochs and early-stopping patience per architecture, background-swap probability.
 
 The model recipes (learning rate, batch size, freezing, ...) are in `plantdisease/experiments.py`. All settings are saved to `OUT_DIR/config.json`. These environment variables override the defaults:
 
@@ -78,7 +79,7 @@ The notebooks show the steps and the results. The shared code is in the `plantdi
 
 | Module | Content |
 |---|---|
-| `config.py` | settings (`PATHS`, `DATA`, `TRAIN`), seeds |
+| `config.py` | settings (`PATHS_CONFIG`, `DATA_CONFIG`, `PLANTDOC_CONFIG`, `TRAIN_CONFIG`) |
 | `device.py` | device, mixed precision, determinism, `set_seed`, `synchronize` |
 | `leafmap.py` | leaf ids from `leaf-map.json` (also used by `database/build_db.py`) |
 | `data.py` | download, leaf grouping, image cache, split, segmented and grayscale versions, transforms, loaders, `prepare()` |

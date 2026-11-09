@@ -19,7 +19,7 @@ from torch.optim.lr_scheduler import CosineAnnealingLR
 from torch.utils.data import DataLoader
 
 from .backgrounds import BackgroundSwapDataset
-from .config import RUNS_DIR, SEEDS
+from .config import PATHS_CONFIG, TRAIN_CONFIG
 from .data import CachedDataset, Data, eval_loader, eval_tf, make_loader, train_tf
 from .device import USE_AMP, device, set_seed, synchronize
 from .experiments import config_of
@@ -47,7 +47,7 @@ def safe_name(name: str) -> str:
 
 def run_path(name: str, seed: int) -> str:
     # Folder of one run.
-    return os.path.join(RUNS_DIR, safe_name(name) + f"__seed{seed}")
+    return os.path.join(PATHS_CONFIG["runs_dir"], safe_name(name) + f"__seed{seed}")
 
 
 def train_dataset(cfg: dict[str, Any], data: Data) -> CachedDataset:
@@ -269,7 +269,7 @@ def run(name: str, cfg: dict[str, Any], seed: int, data: Data) -> dict[str, Any]
 
 
 def run_seeds(
-    name: str, data: Data, seeds: Sequence[int] = SEEDS
+    name: str, data: Data, seeds: Sequence[int] = TRAIN_CONFIG["seeds"]
 ) -> list[dict[str, Any]]:
     # Train (or load) a run name with every training seed.
     return [run(name, config_of(name), seed, data) for seed in seeds]
@@ -316,7 +316,7 @@ def cached_arrays(
 def predict_probs(
     names: Iterable[str],
     image_sets: dict[str, torch.Tensor],
-    seeds: Sequence[int] = SEEDS,
+    seeds: Sequence[int] = TRAIN_CONFIG["seeds"],
 ) -> dict[tuple[str, int, str], np.ndarray]:
     # Softmax probabilities for every (model, seed, test set): {(name, seed, set name): (N, K) array}.
     # They are cached in <run>/preds/, keyed by the image content.
@@ -339,7 +339,7 @@ def predict_probs(
 def predict_labels(
     names: Iterable[str],
     image_sets: dict[str, torch.Tensor],
-    seeds: Sequence[int] = SEEDS,
+    seeds: Sequence[int] = TRAIN_CONFIG["seeds"],
 ) -> dict[tuple[str, int, str], np.ndarray]:
     # Like predict_probs, but the predicted classes.
     return {k: p.argmax(1) for k, p in predict_probs(names, image_sets, seeds).items()}

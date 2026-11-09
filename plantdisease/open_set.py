@@ -9,7 +9,7 @@ import pandas as pd
 import torch
 from sklearn.metrics import roc_auc_score
 
-from .config import CLASSES, DATA, SHORT_NAMES
+from .config import DATA_CONFIG, SHORT_NAMES
 from .data import (
     DATA_ROOT,
     IMAGE_SUFFIXES,
@@ -30,8 +30,8 @@ from .leafmap import image_key, leaf_id
 # Some diseases and crops are held out of training completely: they test photos of a kind the
 # models have never seen.
 # ----------------------------------------------------------------------------
-OTHER_DISEASE, OTHER_CROP = len(CLASSES), len(CLASSES) + 1
-TOMATO_LABELS = list(range(len(CLASSES)))
+OTHER_DISEASE, OTHER_CROP = len(DATA_CONFIG["classes"]), len(DATA_CONFIG["classes"]) + 1
+TOMATO_LABELS = list(range(len(DATA_CONFIG["classes"])))
 CLASS_NAMES = [*SHORT_NAMES, "Other_disease", "Other_crop"]
 NUM_CLASSES = len(CLASS_NAMES)
 
@@ -185,7 +185,7 @@ def open_set_records() -> pd.DataFrame:
     # Photos of the two new classes: about PHOTOS_PER_CLASS per class, spread evenly over the folders.
     with open(os.path.join(DATA_ROOT, "leaf-map.json")) as f:
         leaf_map = json.load(f)
-    rng = np.random.default_rng(DATA["split_seed"])
+    rng = np.random.default_rng(DATA_CONFIG["split_seed"])
     rows = []
     for label, folders in TRAIN_FOLDERS.items():
         per_folder = int(np.ceil(PHOTOS_PER_CLASS / len(folders)))
@@ -230,7 +230,7 @@ def prepare_open_set(data: Data) -> Data:
 # ----------------------------------------------------------------------------
 def held_out_records() -> pd.DataFrame:
     # HELD_OUT_PER_FOLDER photos of every held-out folder (leaf ids are not needed: test only).
-    rng = np.random.default_rng(DATA["split_seed"])
+    rng = np.random.default_rng(DATA_CONFIG["split_seed"])
     rows = []
     for label, folders in HELD_OUT_FOLDERS.items():
         for folder in folders:

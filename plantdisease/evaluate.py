@@ -1,6 +1,6 @@
 """Metrics, seed statistics, compute, Grad-CAM and other evaluation tools (Sections 9-20).
 
-Uncertainty follows Zhouyang's protocol: every model is trained with the seeds of TRAIN["seeds"] on one
+Uncertainty follows Zhouyang's protocol: every model is trained with the seeds of TRAIN_CONFIG["seeds"] on one
 fixed split; results are the mean ± sample standard deviation over these seeds. Two models trained
 with the same seed are compared seed by seed ("higher in k of n seeds"). The standard deviation
 covers the randomness of training, not the choice of test leaves.
@@ -20,7 +20,7 @@ import torch.nn.functional as F  # noqa: N812
 from sklearn.metrics import f1_score
 from torch import nn
 
-from .config import DATA, SEEDS
+from .config import DATA_CONFIG, TRAIN_CONFIG
 from .data import eval_tf
 from .device import USE_AMP, device, synchronize
 from .experiments import config_of
@@ -59,9 +59,9 @@ def seed_scores(
     y: np.ndarray,
     labels: npt.ArrayLike | None = None,
 ) -> dict[str, np.ndarray]:
-    # Macro-F1 of every seed: {model: array over SEEDS}. preds: {(model, seed, set name): predicted classes}.
+    # Macro-F1 of every seed: {model: array over the seeds}. preds: {(model, seed, set name): predicted classes}.
     return {
-        name: np.array([macro_f1(y, preds[(name, s, set_name)], labels) for s in SEEDS])
+        name: np.array([macro_f1(y, preds[(name, s, set_name)], labels) for s in TRAIN_CONFIG["seeds"]])
         for name in names
     }
 
@@ -95,7 +95,7 @@ def stable_errors(
 # ----------------------------------------------------------------------------
 def measure_latency(model: nn.Module, batch_size: int, repeats: int = 20) -> float:
     # Inference time in ms per image on the current device, after a warm-up.
-    x = torch.randn(batch_size, 3, DATA["img_size"], DATA["img_size"], device=device)
+    x = torch.randn(batch_size, 3, DATA_CONFIG["img_size"], DATA_CONFIG["img_size"], device=device)
     with (
         torch.no_grad(),
         torch.autocast(device.type, dtype=torch.float16, enabled=USE_AMP),
@@ -113,7 +113,7 @@ def measure_latency(model: nn.Module, batch_size: int, repeats: int = 20) -> flo
 def training_cost(name: str) -> dict[str, Any]:
     # Training cost over the seeds: trainable parameters (fine-tuning stage), epochs trained (early
     # stopping), and training time without validation (device-synchronised).
-    histories = [load_history(name, s) for s in SEEDS]
+    histories = [load_history(name, s) for s in TRAIN_CONFIG["seeds"]]
     return {
         "trainable params": histories[0]["trainable_params"][-1],
         "epochs trained": mean_sd([len(h["train_time"]) for h in histories], 1),
@@ -123,8 +123,8 @@ def training_cost(name: str) -> dict[str, Any]:
 
 
 def inference_cost(name: str, checkpoint: str) -> dict[str, float]:
-    # Parameters, checkpoint size and inference latency of seed SEEDS[0] (ours).
-    model = load_model(name, SEEDS[0])
+    # Parameters, checkpoint size and inference latency of the first seed (ours).
+    model = load_model(name, TRAIN_CONFIG["seeds"][0])
     return {
         "params (M)": count_params(model) / 1e6,
         "size (MB)": os.path.getsize(checkpoint) / 1e6,
@@ -227,7 +227,7 @@ def leaf_share_table(
             )
             for v in variants
         }
-        arrays = [cached_arrays(name, seed, jobs) for seed in SEEDS]
+        arrays = [cached_arrays(name, seed, jobs) for seed in TRAIN_CONFIG["seeds"]]
         for variant in variants:
             per_seed = [np.nanmean(a[files[variant]]) for a in arrays]
             rows.append(
@@ -266,7 +266,7 @@ def shift_table(
         name: np.array(
             [
                 macro_f1(y_clean[same], preds[(name, s, "test")][same], labels)
-                for s in SEEDS
+                for s in TRAIN_CONFIG["seeds"]
             ]
         )
         for name in models
@@ -304,7 +304,7 @@ def per_class_recall(
     # Recall of every class, mean over the seeds -> {model: [recall per class]}.
     return {
         name: [
-            np.mean([(preds[(name, s, set_name)][y == c] == c).mean() for s in SEEDS])
+            np.mean([(preds[(name, s, set_name)][y == c] == c).mean() for s in TRAIN_CONFIG["seeds"]])
             for c in classes
         ]
         for name in models

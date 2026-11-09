@@ -3,7 +3,7 @@
     "data_root": "./PlantVillage-Dataset",
     "cache_dir": "./cache",
     "out_dir": "./outputs",
-    "field_root": "./PlantDoc-Dataset"
+    "runs_dir": "./outputs\\runs"
   },
   "data": {
     "classes": [
@@ -18,13 +18,6 @@
       "Tomato___Leaf_Mold": "crnl_l.mold",
       "Tomato___Spider_mites Two-spotted_spider_mite": "com.g_spm_fl"
     },
-    "field_url": "https://github.com/pratikkayal/PlantDoc-Dataset",
-    "field_folders": {
-      "Tomato___healthy": "Tomato leaf",
-      "Tomato___Early_blight": "Tomato Early blight leaf",
-      "Tomato___Leaf_Mold": "Tomato mold leaf",
-      "Tomato___Spider_mites Two-spotted_spider_mite": "Tomato two spotted spider mites leaf"
-    },
     "min_series_photos": 20,
     "img_size": 224,
     "split_seed": 62,
@@ -33,6 +26,16 @@
       0.15
     ],
     "num_workers": 2
+  },
+  "plantdoc": {
+    "root": "./PlantDoc-Dataset",
+    "url": "https://github.com/pratikkayal/PlantDoc-Dataset",
+    "folders": {
+      "Tomato___healthy": "Tomato leaf",
+      "Tomato___Early_blight": "Tomato Early blight leaf",
+      "Tomato___Leaf_Mold": "Tomato mold leaf",
+      "Tomato___Spider_mites Two-spotted_spider_mite": "Tomato two spotted spider mites leaf"
+    }
   },
   "train": {
     "seeds": [

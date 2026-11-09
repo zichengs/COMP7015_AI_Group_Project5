@@ -67,7 +67,7 @@ def mean_and_sd(values: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
 
 
 def finish(file_name: str | None = None) -> None:
-    # tight layout, save to OUT_DIR (if a file name is given) and show.
+    # tight layout, save to the output folder (if a file name is given) and show.
     plt.tight_layout()
     if file_name:
         plt.savefig(out_path(file_name), dpi=150)
