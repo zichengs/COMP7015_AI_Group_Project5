@@ -19,15 +19,22 @@ def load_resized(path: str, size: int = DATA_CONFIG["img_size"]) -> torch.Tensor
 
 def build_cache(paths: Iterable[str], name: str) -> torch.Tensor:
     # Decode + resize all images once and store them as a uint8 tensor (N, 3, H, W).
+
+    # Define save path
     file = os.path.join(
         PATHS_CONFIG["cache_dir"], f"{name}_{DATA_CONFIG['img_size']}.pt"
     )
     paths = list(paths)
     if os.path.exists(file):
         cache = torch.load(file)
+
+        # Load data only if paths didn't change
         if cache["paths"] == paths:
             return cache["images"]
+
+    # torch.stack combines them into one (N, 3, H, W) tensor
     images = torch.stack([load_resized(p) for p in paths])
+
     torch.save({"paths": paths, "images": images}, file)
     return images
 
