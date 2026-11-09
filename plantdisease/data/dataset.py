@@ -16,7 +16,7 @@ from .records import data_fingerprint, load_records, make_split
 def class_weights(df: pd.DataFrame, train_idx: np.ndarray) -> torch.Tensor:
     # Class-weighted loss: w_c = N / (K * n_c) over the training photos.
     k = len(DATA_CONFIG["classes"])
-    train_counts = np.bincount(df.label[train_idx], minlength=k)
+    train_counts = np.bincount(df.class_index[train_idx], minlength=k)
     return torch.tensor(len(train_idx) / (k * train_counts), dtype=torch.float32)
 
 
@@ -71,7 +71,7 @@ def prepare() -> Data:
         df=df,
         other_df=other_df,
         images=images,
-        labels=torch.tensor(df["label"].values),
+        labels=torch.tensor(df["class_index"].values),
         train_idx=train_idx,
         val_idx=val_idx,
         test_idx=test_idx,

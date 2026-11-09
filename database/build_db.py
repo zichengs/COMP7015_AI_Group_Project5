@@ -18,7 +18,7 @@ from PIL import Image
 
 # the leaf-id rules of the notebooks (plantdisease/data/leafmap.py, no torch import)
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from plantdisease.data.leafmap import EXT_PATTERN, image_key, leaf_class, leaf_id
+from plantdisease.data.leafmap import EXT_PATTERN, get_image_key, leaf_class, get_leaf_id
 
 SCHEMA_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "schema.sql")
 # color first: its file names define the photo stems
@@ -174,8 +174,8 @@ def build(data_root, db_path, workers):
 
             photo_rows = []
             for class_name, stem in photos:
-                key = image_key(stem)
-                leaf_key, source = leaf_id(leaf_map, class_name, stem)
+                key = get_image_key(stem)
+                leaf_key, source = get_leaf_id(leaf_map, class_name, stem)
                 if leaf_key is not None and leaf_key not in leaf_ids:
                     leaf_ids[leaf_key] = con.execute(
                         "INSERT INTO leaf (class_id, leaf_key, source) VALUES (?, ?, ?)",

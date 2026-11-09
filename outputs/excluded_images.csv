@@ -1,2 +1,2 @@
-path,file_name,label,class_name,key,series,leaf_id,source,training_series
+path,file_name,class_index,class_name,image_key,series,leaf_id,source,training_series
 ./PlantVillage-Dataset\raw\color\Tomato___Early_blight\75128610-8633-4000-8f74-17b6cff222d7___RS_Erly.B 6341.JPG,75128610-8633-4000-8f74-17b6cff222d7___RS_Erly.B 6341.JPG,1,Tomato___Early_blight,rs_erly.b 6341,rs_erly.b,,excluded: no leaf information,True

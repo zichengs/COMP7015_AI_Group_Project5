@@ -79,21 +79,21 @@ def download_github_folders(url: str, root: str, folders: list[str]) -> list[str
 
 
 def field_records(folders: dict[str, int]) -> pd.DataFrame:
-    # PlantDoc photos (Section 19.2) of `folders` ({PlantDoc folder: label}), from the
+    # PlantDoc photos (Section 19.2) of `folders` ({PlantDoc folder: class index}), from the
     # authors' train and test folders: all are test data here. Missing folders are downloaded;
     # folders that are not complete (download failed) are skipped.
     root = PLANTDOC_CONFIG["root"]
     wanted = [f"{split}/{folder}" for folder in folders for split in ("train", "test")]
     available = download_github_folders(PLANTDOC_CONFIG["url"], root, wanted)
     rows = []
-    for folder, label in folders.items():
+    for folder, class_index in folders.items():
         for split in ("train", "test"):
             if f"{split}/{folder}" not in available:
                 continue
             folder_dir = os.path.join(root, split, folder)
             rows += [
-                {"path": os.path.join(folder_dir, f), "label": label, "folder": folder}
+                {"path": os.path.join(folder_dir, f), "class_index": class_index, "folder": folder}
                 for f in sorted(os.listdir(folder_dir))
                 if f.lower().endswith(IMAGE_SUFFIXES)
             ]
-    return pd.DataFrame(rows, columns=["path", "label", "folder"])
+    return pd.DataFrame(rows, columns=["path", "class_index", "folder"])

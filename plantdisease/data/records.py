@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 
 from ..config import DATA_CONFIG, PATHS_CONFIG, out_path
-from .leafmap import IMAGE_SUFFIXES, image_key, leaf_id
+from .leafmap import IMAGE_SUFFIXES, get_image_key, get_leaf_id
 
 
 # ----------------------------------------------------------------------------
@@ -23,37 +23,49 @@ def load_records() -> tuple[
     with open(os.path.join(data_root, "leaf-map.json")) as f:
         leaf_map = json.load(f)  # image identifier -> ['<class>:::<leaf group>', ...]
 
-    records = []
-    for label, class_name in enumerate(DATA_CONFIG["classes"]):
+    all_records = []
+    # loop over each class
+    for class_index, class_name in enumerate(DATA_CONFIG["classes"]):
         class_dir = os.path.join(data_root, "raw", "color", class_name)
+
+        # loop over each file and search for images
         for file_name in sorted(os.listdir(class_dir)):
             if file_name.lower().endswith(IMAGE_SUFFIXES):
-                key = image_key(file_name)
-                leaf, source = leaf_id(leaf_map, class_name, file_name)
-                records.append(
+                image_key = get_image_key(file_name)
+                series_name = image_key.split()[0]
+                leaf_id, source = get_leaf_id(leaf_map, class_name, file_name)
+
+                all_records.append(
                     {
                         "path": os.path.join(class_dir, file_name),
                         "file_name": file_name,
-                        "label": label,
+                        "class_index": class_index,
                         "class_name": class_name,
-                        "key": key,
-                        "series": key.split()[0],
-                        "leaf_id": leaf,
+                        "image_key": image_key,
+                        "series": series_name,
+                        "leaf_id": leaf_id,
                         "source": source,
                     }
                 )
-    all_df = pd.DataFrame(records)
+    all_df = pd.DataFrame(all_records)
+
+    # creates a boolean column, find out series that need to be used for training
     all_df["training_series"] = all_df["series"] == all_df["class_name"].map(
         DATA_CONFIG["train_series"]
     )
+
+    # exclude images that are in training series but not have leaf id
     all_df[all_df["leaf_id"].isna() & all_df["training_series"]].to_csv(
         out_path("excluded_images.csv"), index=False
     )
+
     # training photos: the training series of every class, official leaf ids only
     df = all_df[all_df["training_series"] & all_df["leaf_id"].notna()].reset_index(
         drop=True
     )
-    # every other series of these classes is only used as the series test (Section 19.1)
+
+    # every other series of these classes is only used as the series test
+    # exclude series with size less than DATA_CONFIG["min_series_photos"]
     other_df = all_df[~all_df["training_series"]]
     series_size = other_df.groupby(["class_name", "series"])["path"].transform("size")
     other_df = other_df[series_size >= DATA_CONFIG["min_series_photos"]].reset_index(
@@ -81,7 +93,7 @@ def make_split(df: pd.DataFrame) -> tuple[np.ndarray, ...]:
     rng = np.random.default_rng(DATA_CONFIG["split_seed"])
     split_of_leaf = {}
     for c in range(len(DATA_CONFIG["classes"])):
-        leaves = rng.permutation(sorted(df.loc[df.label == c, "leaf_id"].unique()))
+        leaves = rng.permutation(sorted(df.loc[df.class_index == c, "leaf_id"].unique()))
         split_of_leaf |= split_leaves(leaves)
     df["split"] = df["leaf_id"].map(split_of_leaf)
 
