@@ -173,7 +173,7 @@ def grad_cam_images(name: str, seed: int, images: torch.Tensor) -> torch.Tensor:
     model = load_model(name, seed)
     x = eval_tf(images).to(device)
     with torch.autocast(device.type, enabled=False):
-        return grad_cam(model, LAYER_OF[config_of(name)["arch"]](model), x)
+        return grad_cam(model, LAYER_OF[config_of(name).arch](model), x)
 
 
 def leaf_attention(
@@ -220,7 +220,7 @@ def leaf_share_table(
         for v in variants
     }
     for name in model_names:
-        layer_of = LAYER_OF[config_of(name)["arch"]]
+        layer_of = LAYER_OF[config_of(name).arch]
         jobs = {
             files[v]: lambda model, images=tests[v], layer_of=layer_of: leaf_attention(
                 model, layer_of(model), images, masks

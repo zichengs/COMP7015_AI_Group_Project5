@@ -12,6 +12,7 @@ from typing import Any
 import numpy as np
 import torch
 import torch.nn.functional as F  # noqa: N812
+from pydantic import ValidationError
 from sklearn.metrics import accuracy_score, f1_score
 from torch import nn
 from torch.optim import AdamW
@@ -24,6 +25,7 @@ from .data import CachedDataset, Data, eval_loader, eval_tf, make_loader, train_
 from .device import USE_AMP, device, set_seed, synchronize
 from .experiments import config_of
 from .models import build_model, count_params, is_head, set_trainable
+from .recipe import RunConfig
 
 
 def predict(model: nn.Module, loader: DataLoader) -> tuple[torch.Tensor, torch.Tensor]:
@@ -50,26 +52,26 @@ def run_path(name: str, seed: int) -> str:
     return os.path.join(PATHS_CONFIG["runs_dir"], safe_name(name) + f"__seed{seed}")
 
 
-def train_dataset(cfg: dict[str, Any], data: Data) -> CachedDataset:
+def train_dataset(cfg: RunConfig, data: Data) -> CachedDataset:
     # Training set of a configuration: its input version, augmentation and (Section 18) background swap.
-    transform = train_tf if cfg["augment"] else eval_tf
-    images = data.input_images(cfg.get("input", "color"))
-    if cfg.get("background_swap", 0.0) > 0:
+    transform = train_tf if cfg.augment else eval_tf
+    images = data.input_images(cfg.input)
+    if cfg.background_swap > 0:
         masks, swap_ok = data.swap_masks
         return BackgroundSwapDataset(
             images,
             data.labels,
             data.train_idx,
             transform,
-            p=cfg["background_swap"],
+            p=cfg.background_swap,
             masks=masks,
             swap_ok=swap_ok,
-            class_matched=cfg.get("class_matched_background", False),
+            class_matched=cfg.class_matched_background,
         )
     return CachedDataset(images, data.labels, data.train_idx, transform)
 
 
-def make_optimizer(model: nn.Module, cfg: dict[str, Any], stage: str) -> AdamW:
+def make_optimizer(model: nn.Module, cfg: RunConfig, stage: str) -> AdamW:
     # AdamW over the trainable parameters. In the fine-tuning stage the classifier head and the
     # backbone can have different learning rates (ViT: head 1e-4, backbone 1e-5).
     head = [
@@ -81,42 +83,44 @@ def make_optimizer(model: nn.Module, cfg: dict[str, Any], stage: str) -> AdamW:
         if p.requires_grad and not is_head(cfg, n)
     ]
     if stage == "head":
-        groups = [{"params": head, "lr": cfg["head_lr"]}]
+        groups = [{"params": head, "lr": cfg.head_lr}]
     else:
         groups = [
-            {"params": head, "lr": cfg.get("finetune_head_lr", cfg["lr"])},
-            {"params": rest, "lr": cfg["lr"]},
+            {"params": head, "lr": cfg.finetune_head_lr or cfg.lr},
+            {"params": rest, "lr": cfg.lr},
         ]
     groups = [g for g in groups if g["params"]]
-    return AdamW(groups, weight_decay=cfg["weight_decay"])
+    return AdamW(groups, weight_decay=cfg.weight_decay)
 
 
-def load_finished(
-    run_dir: str, cfg: dict[str, Any], data: Data
-) -> dict[str, Any] | None:
+def load_finished(run_dir: str, cfg: RunConfig, data: Data) -> dict[str, Any] | None:
     # History of a finished run, or None if it was not trained with this configuration and data.
     history_file = os.path.join(run_dir, "history.json")
     if not os.path.exists(history_file):
         return None
     with open(history_file) as f:
         saved = json.load(f)
-    if saved["config"] == cfg and saved.get("data") == data.data_id:
+    try:  # settings that were not saved yet have their default value
+        same_config = RunConfig.model_validate(saved["config"]) == cfg
+    except ValidationError:
+        same_config = False
+    if same_config and saved.get("data") == data.data_id:
         return saved["history"]
     return None
 
 
 def start_stage(
-    model: nn.Module, cfg: dict[str, Any], epoch: int, steps_per_epoch: int
+    model: nn.Module, cfg: RunConfig, epoch: int, steps_per_epoch: int
 ) -> tuple[str, list[nn.Parameter], AdamW, CosineAnnealingLR | None]:
     # Start of a training stage ("head" or "finetune"): set the trainable parameters and
     # (re)build the optimizer and scheduler. The cosine schedule covers the stage.
-    stage = "head" if epoch < cfg["head_epochs"] else "finetune"
+    stage = "head" if epoch < cfg.head_epochs else "finetune"
     set_trainable(model, cfg, stage)
     params = [p for p in model.parameters() if p.requires_grad]
     optimizer = make_optimizer(model, cfg, stage)
     scheduler = None
-    if cfg["scheduler"] == "cosine":
-        stage_end = cfg["head_epochs"] if stage == "head" else cfg["epochs"]
+    if cfg.scheduler == "cosine":
+        stage_end = cfg.head_epochs if stage == "head" else cfg.epochs
         scheduler = CosineAnnealingLR(
             optimizer, T_max=steps_per_epoch * (stage_end - epoch)
         )
@@ -176,7 +180,7 @@ def validate(model: nn.Module, loader: DataLoader) -> tuple[float, float, float,
     )
 
 
-def run(name: str, cfg: dict[str, Any], seed: int, data: Data) -> dict[str, Any]:
+def run(name: str, cfg: RunConfig, seed: int, data: Data) -> dict[str, Any]:
     # Train one configuration with one seed (or load it if it was trained before). Returns the history.
     run_dir = run_path(name, seed)
     finished = load_finished(run_dir, cfg, data)
@@ -189,13 +193,11 @@ def run(name: str, cfg: dict[str, Any], seed: int, data: Data) -> dict[str, Any]
     shutil.rmtree(os.path.join(run_dir, "preds"), ignore_errors=True)
     set_seed(seed)
     model = build_model(cfg).to(device)
-    train_loader = make_loader(train_dataset(cfg, data), cfg["batch_size"], seed=seed)
-    val_images = data.input_images(
-        cfg.get("input", "color")
-    )  # validate on the same input version
+    train_loader = make_loader(train_dataset(cfg, data), cfg.batch_size, seed=seed)
+    val_images = data.input_images(cfg.input)  # validate on the same input version
     val_loader = eval_loader(val_images, data.labels, data.val_idx)
     criterion = nn.CrossEntropyLoss(
-        weight=data.class_weights.to(device) if cfg["class_weights"] else None
+        weight=data.class_weights.to(device) if cfg.class_weights else None
     )
     scaler = torch.amp.GradScaler("cuda", enabled=USE_AMP)
     history = {
@@ -215,11 +217,10 @@ def run(name: str, cfg: dict[str, Any], seed: int, data: Data) -> dict[str, Any]
     }
     best_f1, best_epoch = -1.0, -1
     # early stopping is only considered in the last training stage (after the head-only epochs)
-    last_stage_start = cfg["head_epochs"] if cfg["head_epochs"] < cfg["epochs"] else 0
-    patience = cfg.get("patience", 0)
+    last_stage_start = cfg.head_epochs if cfg.head_epochs < cfg.epochs else 0
 
-    for epoch in range(cfg["epochs"]):
-        if epoch in (0, cfg["head_epochs"]):
+    for epoch in range(cfg.epochs):
+        if epoch in (0, cfg.head_epochs):
             stage, params, optimizer, scheduler = start_stage(
                 model, cfg, epoch, len(train_loader)
             )
@@ -242,7 +243,7 @@ def run(name: str, cfg: dict[str, Any], seed: int, data: Data) -> dict[str, Any]
         }.items():
             history[key].append(value)
         print(
-            f"Epoch {epoch + 1}/{cfg['epochs']} [{stage}] | train loss {history['train_loss'][-1]:.4f} acc {history['train_acc'][-1]:.4f}"
+            f"Epoch {epoch + 1}/{cfg.epochs} [{stage}] | train loss {history['train_loss'][-1]:.4f} acc {history['train_acc'][-1]:.4f}"
             f" | val loss {history['val_loss'][-1]:.4f} acc {history['val_acc'][-1]:.4f} macro-F1 {history['val_f1'][-1]:.4f}"
             f" | {history['epoch_time'][-1]:.0f}s"
         )
@@ -255,13 +256,19 @@ def run(name: str, cfg: dict[str, Any], seed: int, data: Data) -> dict[str, Any]
 
         # early stopping: `patience` epochs of the last stage without a better validation macro-F1
         epochs_without_gain = epoch - max(best_epoch, last_stage_start - 1)
-        if patience and epoch + 1 < cfg["epochs"] and epochs_without_gain >= patience:
-            print(f"Early stopping: no improvement for {patience} epochs")
+        if (
+            cfg.patience
+            and epoch + 1 < cfg.epochs
+            and epochs_without_gain >= cfg.patience
+        ):
+            print(f"Early stopping: no improvement for {cfg.patience} epochs")
             break
 
-    history["stopped_early"] = len(history["val_f1"]) < cfg["epochs"]
+    history["stopped_early"] = len(history["val_f1"]) < cfg.epochs
     with open(os.path.join(run_dir, "history.json"), "w") as f:
-        json.dump({"config": cfg, "data": data.data_id, "history": history}, f)
+        json.dump(
+            {"config": cfg.model_dump(), "data": data.data_id, "history": history}, f
+        )
     print(
         f"Best val macro-F1: {best_f1:.4f} (epoch {best_epoch + 1} of {len(history['val_f1'])})"
     )

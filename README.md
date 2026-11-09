@@ -58,7 +58,7 @@ The settings live in `plantdisease/config.py`, in four dictionaries:
 - `PLANTDOC_CONFIG`: the PlantDoc field photos (folder, repository URL, folder of each class);
 - `TRAIN_CONFIG`: training seeds, maximum epochs and early-stopping patience per architecture, background-swap probability.
 
-The model recipes (learning rate, batch size, freezing, ...) are in `plantdisease/experiments.py`. All settings are saved to `OUT_DIR/config.json`. These environment variables override the defaults:
+The model recipes (learning rate, batch size, freezing, ...) are in `plantdisease/experiments.py`; the settings a recipe can have are defined by `RunConfig` in `plantdisease/recipe.py`. All settings are saved to `OUT_DIR/config.json`. These environment variables override the defaults:
 
 | Variable | Default | Meaning |
 |---|---|---|
@@ -85,7 +85,8 @@ The notebooks show the steps and the results. The shared code is in the `plantdi
 | `data.py` | download, leaf grouping, image cache, split, segmented and grayscale versions, transforms, loaders, `prepare()` |
 | `backgrounds.py` | leaf masks, test variants, same-leaf background tests, background-swap dataset |
 | `models.py` | custom CNN with SE attention, ResNet18, ViT-B/16, freezing for the fine-tuning strategies |
-| `experiments.py` | the configurations of Sections 9, 10, 15 and 18, the selected models |
+| `recipe.py` | `RunConfig`, the pydantic model of one training run (which settings exist, their types and allowed values) |
+| `experiments.py` | the configurations of Sections 9, 10, 15 and 18 (built from `RunConfig`), the selected models |
 | `train.py` | training engine (AdamW, schedules, two-stage fine-tuning with separate head/backbone learning rates, checkpoints, training cost), cached predictions |
 | `evaluate.py` | macro-F1, mean ± sd over seeds, same-seed comparisons, stable errors, Grad-CAM, latency and training cost, calibration |
 | `open_set.py` | notebook 07: the design of the classes *Other disease* and *Other crop*, held-out folders, six-class data, rejection rule |

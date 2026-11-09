@@ -1,11 +1,10 @@
 """Models: custom CNN with optional SE attention, ResNet18, ViT-B/16, and two-stage freezing (Sections 7 and 10)."""
 
-from typing import Any
-
 from torch import Tensor, nn
 from torchvision import models
 
 from .config import DATA_CONFIG
+from .recipe import RunConfig
 
 
 class SEBlock(nn.Module):
@@ -55,24 +54,24 @@ class CustomCNN(nn.Module):
         return self.fc(self.dropout(x))
 
 
-def build_model(cfg: dict[str, Any], pretrained: bool = True) -> nn.Module:
+def build_model(cfg: RunConfig, pretrained: bool = True) -> nn.Module:
     # number of outputs: the four classes, or more for the open-set runs of notebook 07
-    k = cfg.get("num_classes", len(DATA_CONFIG["classes"]))
-    if cfg["arch"] in ("cnn", "se_cnn"):
-        return CustomCNN(k, cfg["dropout"], attention=cfg["arch"] == "se_cnn")
-    if cfg["arch"] == "resnet18":
+    k = cfg.num_classes or len(DATA_CONFIG["classes"])
+    if cfg.arch in ("cnn", "se_cnn"):
+        return CustomCNN(k, cfg.dropout, attention=cfg.arch == "se_cnn")
+    if cfg.arch == "resnet18":
         model = models.resnet18(
             weights=models.ResNet18_Weights.IMAGENET1K_V1 if pretrained else None
         )
         model.fc = nn.Linear(model.fc.in_features, k)
         return model
-    if cfg["arch"] == "vit_b_16":
+    if cfg.arch == "vit_b_16":
         model = models.vit_b_16(
             weights=models.ViT_B_16_Weights.IMAGENET1K_V1 if pretrained else None
         )
         model.heads.head = nn.Linear(model.heads.head.in_features, k)
         return model
-    raise ValueError(cfg["arch"])
+    raise ValueError(cfg.arch)
 
 
 HEAD_PREFIX = {"resnet18": ("fc.",), "vit_b_16": ("heads.",)}
@@ -83,28 +82,28 @@ LAYER_OF = {  # last convolutional feature maps of every architecture (for Grad-
 }
 
 
-def is_head(cfg: dict[str, Any], name: str) -> bool:
+def is_head(cfg: RunConfig, name: str) -> bool:
     # Does parameter `name` belong to the new classifier head?
-    return name.startswith(HEAD_PREFIX.get(cfg["arch"], ()))
+    return name.startswith(HEAD_PREFIX.get(cfg.arch, ()))
 
 
-def set_trainable(model: nn.Module, cfg: dict[str, Any], stage: str) -> None:
-    # Stage 'head': only the new classifier is trained. Stage 'finetune': cfg["finetune"] decides
+def set_trainable(model: nn.Module, cfg: RunConfig, stage: str) -> None:
+    # Stage 'head': only the new classifier is trained. Stage 'finetune': cfg.finetune decides
     # (fine-tuning strategies of Section 10):
     #   'head'    the classifier only (backbone frozen throughout)
-    #   'partial' the last cfg["trainable_blocks"] ViT encoder blocks, the final LayerNorm and the classifier
+    #   'partial' the last cfg.trainable_blocks ViT encoder blocks, the final LayerNorm and the classifier
     #   'full'    every parameter, including patch embedding, position embedding and class token (default)
     if (
-        cfg["arch"] not in HEAD_PREFIX
+        cfg.arch not in HEAD_PREFIX
     ):  # models trained from scratch: everything is trainable
         return
-    scope = "head" if stage == "head" else cfg.get("finetune", "full")
+    scope = "head" if stage == "head" else cfg.finetune
     if scope == "full":
         model.requires_grad_(True)
         return
-    trainable = HEAD_PREFIX[cfg["arch"]]
+    trainable = HEAD_PREFIX[cfg.arch]
     if scope == "partial":
-        n = cfg["trainable_blocks"]
+        n = cfg.trainable_blocks
         blocks = [f"encoder.layers.encoder_layer_{i}." for i in range(12 - n, 12)]
         trainable = (*trainable, *blocks, "encoder.ln.")
     for name, p in model.named_parameters():
