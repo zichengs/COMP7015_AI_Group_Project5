@@ -1,6 +1,0 @@
-run,family,val macro-F1 (seed 62),mean over seeds,mean ± sd
-SE-CNN (full recipe),cnn,1.0,0.9940780853363883,0.9941 ± 0.0103
-SE-CNN constant lr,cnn,1.0,0.9965985508825845,0.9966 ± 0.0030
-SE-CNN lr=3e-4,cnn,0.9973631818685381,0.9982416248531821,0.9982 ± 0.0015
-"ResNet18 full FT, constant lr",resnet18,1.0,1.0,1.0000 ± 0.0000
-"ResNet18 two-stage + cosine, lr=1e-4",resnet18,1.0,0.9994364159098265,0.9994 ± 0.0010

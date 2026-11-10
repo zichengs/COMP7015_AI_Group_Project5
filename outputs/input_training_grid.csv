@@ -1,4 +1,0 @@
-,test: original,test: grayscale,test: background removed
-train: color,0.9966 ± 0.0031,0.4887 ± 0.0923,0.8687 ± 0.0061
-train: grayscale,0.9769 ± 0.0079,0.9865 ± 0.0038,0.6599 ± 0.1018
-train: background removed,0.9555 ± 0.0322,0.5866 ± 0.0506,0.9977 ± 0.0021

@@ -1,7 +1,0 @@
-model,variant,macro-F1,prediction = class of the background photo
-SE-CNN lr=3e-4,same-class background,0.897 ± 0.016,
-SE-CNN lr=3e-4,other-class background,0.381 ± 0.018,0.454 ± 0.023
-"ResNet18 full FT, constant lr",same-class background,0.976 ± 0.010,
-"ResNet18 full FT, constant lr",other-class background,0.761 ± 0.044,0.156 ± 0.037
-ViT-B/16 full fine-tuning,same-class background,0.922 ± 0.041,
-ViT-B/16 full fine-tuning,other-class background,0.771 ± 0.046,0.124 ± 0.025

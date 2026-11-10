@@ -1,5 +1,0 @@
-run,test accuracy,test macro-F1,errors per seed,wrong in every seed,wrong at least once,train time (s),peak memory (MiB)
-ViT-B/16 head only,0.9869 ± 0.0029,0.9857 ± 0.0027,"11, 9, 7",7,12,235.1 ± 1.6,701.041015625
-ViT-B/16 partial (last 2 blocks),0.9947 ± 0.0008,0.9940 ± 0.0010,"4, 3, 4",3,4,279.1 ± 6.1,895.2666015625
-ViT-B/16 full fine-tuning,0.9966 ± 0.0030,0.9966 ± 0.0031,"4, 0, 3",0,6,294.7 ± 27.8,2555.5764973958335
-"ViT-B/16 partial, no augmentation",0.9942 ± 0.0015,0.9937 ± 0.0016,"5, 4, 3",1,6,205.4 ± 19.2,895.2666015625
