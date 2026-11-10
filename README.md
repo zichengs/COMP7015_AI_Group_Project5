@@ -57,7 +57,7 @@ The settings live in `plantdisease/config.py`, in four dictionaries:
 - `PLANTDOC_CONFIG`: the PlantDoc field photos (folder, repository URL, folder of each class);
 - `TRAIN_CONFIG`: training seeds and the background-swap probability. The maximum epochs and the early-stopping patience are part of each model recipe (notebooks 02 and 03).
 
-The model recipes (learning rate, batch size, freezing, epochs, ...) are defined in notebooks 02 and 03, right before the experiments are run; the settings a recipe can have are defined by `RunConfig` in `plantdisease/recipe.py`. All settings are saved to `OUT_DIR/config.json`. These environment variables override the defaults:
+The model recipes (learning rate, batch size, freezing, epochs, ...) are defined in notebooks 02 and 03, right before the experiments are run; the settings a recipe can have are defined by `RunConfig` in `plantdisease/recipe.py`. Notebook 01 saves all settings to `OUT_DIR/config.json` (`save_config()`). These environment variables override the defaults:
 
 | Variable | Default | Meaning |
 |---|---|---|

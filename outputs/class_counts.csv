@@ -1,0 +1,6 @@
+class_name,train,val,test,All,leaf ids
+Tomato___healthy,699,152,148,999,250
+Tomato___Bacterial_spot,1487,320,320,2127,532
+Tomato___Early_blight,699,152,148,999,250
+Tomato___Late_blight,644,136,140,920,230
+All,3529,760,756,5045,1262

@@ -61,14 +61,6 @@ def stack_curves(histories: Sequence[BaseModel], key: str) -> np.ndarray:
     return np.array([c + [np.nan] * (n - len(c)) for c in curves])
 
 
-def mean_and_sd(values: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-    # Per-epoch mean and sample sd over runs, ignoring NaN (sd 0 where only one run is left).
-    n = np.sum(~np.isnan(values), 0)
-    mean = np.nanmean(values, 0)
-    sd = np.sqrt(np.nansum((values - mean) ** 2, 0) / np.maximum(n - 1, 1))
-    return mean, sd
-
-
 def finish(file_name: str | None = None) -> None:
     # tight layout, save to the output folder (if a file name is given) and show.
     plt.tight_layout()

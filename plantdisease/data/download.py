@@ -36,46 +36,62 @@ def download_plantvillage() -> None:
 # ----------------------------------------------------------------------------
 # Section 19.1: PlantDoc field photos
 # ----------------------------------------------------------------------------
+def _download_file(url: str, target: str, retries: int = 3) -> None:
+    # Download one file; it only appears under `target` once it is complete.
+    for attempt in range(retries):
+        try:
+            with (
+                urllib.request.urlopen(url, timeout=60) as response,  # noqa: S310
+                open(target + ".part", "wb") as f,
+            ):
+                shutil.copyfileobj(response, f)
+            break
+        except OSError:
+            if attempt == retries - 1:
+                raise
+    os.replace(target + ".part", target)
+
+
+def _download_folder(repo: str, tree: list[dict], root: str, folder: str) -> None:
+    # Download every file of one repository folder and mark the folder as complete.
+    files = [
+        e["path"]
+        for e in tree
+        if e["type"] == "blob" and os.path.dirname(e["path"]) == folder
+    ]
+    os.makedirs(os.path.join(root, folder), exist_ok=True)
+    print(f"Downloading {folder} ({len(files)} files)")
+    for path in files:
+        # characters that Windows does not allow in file names become '_'
+        # (PlantDoc has names like '...picture-id81781575?s=612x612.jpg')
+        name = re.sub(r'[<>:"/\\|?*]', "_", os.path.basename(path))
+        target = os.path.join(root, folder, name)
+        if not os.path.exists(target):
+            raw = f"https://raw.githubusercontent.com/{repo}/HEAD/{urllib.parse.quote(path)}"
+            _download_file(raw, target)
+    open(os.path.join(root, folder, ".complete"), "w").close()
+
+
 def download_github_folders(url: str, root: str, folders: list[str]) -> list[str]:
     # Download `folders` of a GitHub repository file by file over HTTPS (no git needed); returns the
-    # folders that were downloaded completely. Characters that Windows does not allow in file names
-    # (PlantDoc has names like '...picture-id81781575?s=612x612.jpg') are replaced by '_'.
+    # folders that were downloaded completely. Finished folders are skipped, so a failed download
+    # resumes when this runs again.
     repo = url.removeprefix("https://github.com/").strip("/")
-    done = [os.path.join(root, f, ".complete") for f in folders]
-    missing = [f for f, d in zip(folders, done, strict=True) if not os.path.exists(d)]
+    is_complete = {
+        f: os.path.exists(os.path.join(root, f, ".complete")) for f in folders
+    }
+    missing = [f for f in folders if not is_complete[f]]
     if missing:
         try:
             api = f"https://api.github.com/repos/{repo}/git/trees/HEAD?recursive=1"
             with urllib.request.urlopen(api, timeout=60) as response:  # noqa: S310
                 tree = json.load(response)["tree"]
             for folder in missing:
-                files = [
-                    e["path"]
-                    for e in tree
-                    if e["type"] == "blob" and os.path.dirname(e["path"]) == folder
-                ]
-                os.makedirs(os.path.join(root, folder), exist_ok=True)
-                print(f"Downloading {folder} ({len(files)} files)")
-                for path in files:
-                    name = re.sub(r'[<>:"/\\|?*]', "_", os.path.basename(path))
-                    target = os.path.join(root, folder, name)
-                    if os.path.exists(target):
-                        continue
-                    raw = f"https://raw.githubusercontent.com/{repo}/HEAD/{urllib.parse.quote(path)}"
-                    for attempt in range(3):
-                        try:
-                            with urllib.request.urlopen(raw, timeout=60) as response:  # noqa: S310
-                                with open(target + ".part", "wb") as f:
-                                    shutil.copyfileobj(response, f)
-                            break
-                        except OSError:
-                            if attempt == 2:
-                                raise
-                    os.replace(target + ".part", target)
-                open(os.path.join(root, folder, ".complete"), "w").close()
+                _download_folder(repo, tree, root, folder)
+                is_complete[folder] = True
         except OSError as e:
             print(f"Download from {url} stopped: {e}. Run this again to resume.")
-    return [f for f, d in zip(folders, done, strict=True) if os.path.exists(d)]
+    return [f for f in folders if is_complete[f]]
 
 
 def field_records(folders: dict[str, int]) -> pd.DataFrame:
@@ -92,7 +108,11 @@ def field_records(folders: dict[str, int]) -> pd.DataFrame:
                 continue
             folder_dir = os.path.join(root, split, folder)
             rows += [
-                {"path": os.path.join(folder_dir, f), "class_index": class_index, "folder": folder}
+                {
+                    "path": os.path.join(folder_dir, f),
+                    "class_index": class_index,
+                    "folder": folder,
+                }
                 for f in sorted(os.listdir(folder_dir))
                 if f.lower().endswith(IMAGE_SUFFIXES)
             ]

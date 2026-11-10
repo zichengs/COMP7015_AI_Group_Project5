@@ -1,0 +1,41 @@
+{
+  "paths": {
+    "data_root": "./PlantVillage-Dataset",
+    "cache_dir": "./cache",
+    "out_dir": "./outputs",
+    "runs_dir": "./outputs\\runs"
+  },
+  "data": {
+    "classes": [
+      "Tomato___healthy",
+      "Tomato___Bacterial_spot",
+      "Tomato___Early_blight",
+      "Tomato___Late_blight"
+    ],
+    "img_size": 224,
+    "split_seed": 62,
+    "split_fractions": [
+      0.7,
+      0.15
+    ],
+    "num_workers": 2
+  },
+  "plantdoc": {
+    "root": "./PlantDoc-Dataset",
+    "url": "https://github.com/pratikkayal/PlantDoc-Dataset",
+    "folders": {
+      "Tomato___healthy": "Tomato leaf",
+      "Tomato___Bacterial_spot": "Tomato leaf bacterial spot",
+      "Tomato___Early_blight": "Tomato Early blight leaf",
+      "Tomato___Late_blight": "Tomato leaf late blight"
+    }
+  },
+  "train": {
+    "seeds": [
+      62,
+      63,
+      64
+    ],
+    "swap_prob": 0.5
+  }
+}

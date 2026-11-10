@@ -58,14 +58,10 @@ def train_dataset(cfg: RunConfig, data: Data) -> CachedDataset:
 def make_optimizer(model: nn.Module, cfg: RunConfig, stage: str) -> AdamW:
     # AdamW over the trainable parameters. In the fine-tuning stage the classifier head and the
     # backbone can have different learning rates (ViT: head 1e-4, backbone 1e-5).
-    head = [
-        p for n, p in model.named_parameters() if p.requires_grad and is_head(cfg, n)
-    ]
-    rest = [
-        p
-        for n, p in model.named_parameters()
-        if p.requires_grad and not is_head(cfg, n)
-    ]
+    head, rest = [], []
+    for name, p in model.named_parameters():
+        if p.requires_grad:
+            (head if is_head(cfg, name) else rest).append(p)
     if stage == "head":
         groups = [{"params": head, "lr": cfg.head_lr}]
     else:
@@ -79,12 +75,11 @@ def make_optimizer(model: nn.Module, cfg: RunConfig, stage: str) -> AdamW:
 
 def start_stage(
     model: nn.Module, cfg: RunConfig, epoch: int, steps_per_epoch: int
-) -> tuple[str, list[nn.Parameter], AdamW, CosineAnnealingLR | None]:
+) -> tuple[str, AdamW, CosineAnnealingLR | None]:
     # Start of a training stage ("head" or "finetune"): set the trainable parameters and
     # (re)build the optimizer and scheduler. The cosine schedule covers the stage.
     stage = "head" if epoch < cfg.head_epochs else "finetune"
     set_trainable(model, cfg, stage)
-    params = [p for p in model.parameters() if p.requires_grad]
     optimizer = make_optimizer(model, cfg, stage)
     scheduler = None
     if cfg.scheduler == "cosine":
@@ -92,7 +87,7 @@ def start_stage(
         scheduler = CosineAnnealingLR(
             optimizer, T_max=steps_per_epoch * (stage_end - epoch)
         )
-    return stage, params, optimizer, scheduler
+    return stage, optimizer, scheduler
 
 
 # ----------------------------------------------------------------------------
@@ -106,20 +101,19 @@ def train_epoch(
     criterion: nn.Module,
     optimizer: AdamW,
     scheduler: CosineAnnealingLR | None,
-    scaler: torch.amp.GradScaler,  # loss scaling for mixed precision (disabled without CUDA)
-    params: list[nn.Parameter],
+    scaler: torch.amp.GradScaler,
 ) -> tuple[float, float, float]:
     # One training epoch. Returns loss, accuracy and the time (timed without validation, after the
-    # device has finished).
+    # device has finished). `scaler`: loss scaling for mixed precision (see run()).
     model.train()
+    # the parameters whose gradients are clipped: the trainable ones of the current stage
+    params = [p for p in model.parameters() if p.requires_grad]
     running_loss, running_correct = 0.0, 0
     synchronize()
     tic = time.perf_counter()
     for x_cpu, y_cpu in loader:
-        x, y = (
-            x_cpu.to(device, non_blocking=True),
-            y_cpu.to(device, non_blocking=True),
-        )
+        x = x_cpu.to(device, non_blocking=True)
+        y = y_cpu.to(device, non_blocking=True)
         with torch.autocast(device.type, dtype=torch.float16, enabled=USE_AMP):
             outputs = model(x)
             loss = criterion(outputs, y)
@@ -199,15 +193,17 @@ def load_history(name: str, seed: int) -> RunHistory:
 
 
 def should_stop(cfg: RunConfig, epoch: int, best_epoch: int) -> bool:
-    # Early stopping: `patience` epochs of the last training stage (after the head-only epochs)
-    # without a better validation macro-F1. The last epoch never counts as an early stop.
+    # Early stopping after `patience` epochs without a better validation macro-F1. Only epochs of
+    # the last training stage count: the head-only epochs never do. The last epoch is no early stop.
+    # Example: head_epochs=3, patience=5, best epoch 1 (0-based, still head-only): counting starts
+    # at epoch 3, so the run stops after epoch 7 unless an epoch from 3 to 7 is better.
+    if not cfg.patience or epoch + 1 >= cfg.epochs:
+        return False
+    # the fine-tuning stage starts after the head-only epochs (a head-only run has one stage)
     last_stage_start = cfg.head_epochs if cfg.head_epochs < cfg.epochs else 0
-    epochs_without_gain = epoch - max(best_epoch, last_stage_start - 1)
-    return (
-        bool(cfg.patience)
-        and epoch + 1 < cfg.epochs
-        and epochs_without_gain >= cfg.patience
-    )
+    counting_from = max(best_epoch + 1, last_stage_start)
+    epochs_without_gain = epoch + 1 - counting_from
+    return epochs_without_gain >= cfg.patience
 
 
 def run(name: str, cfg: RunConfig, seed: int, data: Data) -> RunHistory:
@@ -219,7 +215,7 @@ def run(name: str, cfg: RunConfig, seed: int, data: Data) -> RunHistory:
         return finished
 
     print(f"\n===== {name} (seed {seed}) =====")
-    # stale predictions
+    # predictions cached for an earlier version of this run are stale
     shutil.rmtree(os.path.join(run_dir, "preds"), ignore_errors=True)
     set_seed(seed)
     model = build_model(cfg).to(device)
@@ -238,14 +234,14 @@ def run(name: str, cfg: RunConfig, seed: int, data: Data) -> RunHistory:
 
     for epoch in range(cfg.epochs):
         if epoch in (0, cfg.head_epochs):
-            stage, params, optimizer, scheduler = start_stage(
+            stage, optimizer, scheduler = start_stage(
                 model, cfg, epoch, len(train_loader)
             )
 
         # learning rate before the epoch (the scheduler changes it during the epoch)
         lr = optimizer.param_groups[0]["lr"]
         train_loss, train_acc, train_time = train_epoch(
-            model, train_loader, criterion, optimizer, scheduler, scaler, params
+            model, train_loader, criterion, optimizer, scheduler, scaler
         )
         val_loss, val_acc, val_f1, val_time = validate(model, val_loader)
         history.add_epoch(

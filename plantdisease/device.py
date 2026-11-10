@@ -2,9 +2,8 @@
 
 import os
 
-os.environ.setdefault(
-    "CUBLAS_WORKSPACE_CONFIG", ":4096:8"
-)  # required for deterministic CUDA matmuls (set before importing torch)
+# Required for deterministic CUDA matmuls; must be set before torch is imported.
+os.environ.setdefault("CUBLAS_WORKSPACE_CONFIG", ":4096:8")
 
 import random
 
@@ -12,9 +11,8 @@ import numpy as np
 import torch
 
 torch.backends.cudnn.benchmark = False
-torch.use_deterministic_algorithms(
-    True, warn_only=True
-)  # warn (not fail) for the few ops without a deterministic version
+# warn (not fail) for the few ops without a deterministic version
+torch.use_deterministic_algorithms(True, warn_only=True)
 
 if torch.cuda.is_available():
     device = torch.device("cuda:0")
@@ -22,9 +20,9 @@ elif torch.backends.mps.is_available():
     device = torch.device("mps")
 else:
     device = torch.device("cpu")
-USE_AMP = (
-    device.type == "cuda"
-)  # mixed precision: large speed-up on NVIDIA GPUs (no gain on Apple MPS)
+
+# Mixed precision: a large speed-up on NVIDIA GPUs (no gain on Apple MPS).
+USE_AMP = device.type == "cuda"
 
 
 def set_seed(seed: int) -> None:

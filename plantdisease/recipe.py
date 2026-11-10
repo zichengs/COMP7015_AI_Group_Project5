@@ -10,40 +10,40 @@ class RunConfig(BaseModel):
     # fails when the recipe is built. A recipe is immutable: `variant` makes a changed copy.
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    arch: Literal[
-        "cnn", "se_cnn", "resnet18", "vit_b_16"
-    ]  # "se_cnn": custom CNN with SE attention
-    lr: float  # learning rate of the whole network (ViT: of the unfrozen backbone parameters)
+    # "se_cnn": custom CNN with SE attention
+    arch: Literal["cnn", "se_cnn", "resnet18", "vit_b_16"]
+    # learning rate of the whole network (ViT: of the unfrozen backbone parameters)
+    lr: float
     batch_size: int
-    dropout: float = 0.0  # before the classifier (custom CNN only)
+    # dropout before the classifier (custom CNN only)
+    dropout: float = 0.0
     augment: bool
-    class_weights: bool  # class-weighted loss
+    # class-weighted loss
+    class_weights: bool
     scheduler: Literal["cosine", "constant"]
     weight_decay: float
-    epochs: int  # maximum, including the head-only epochs
-    patience: int = 0  # early stopping after this many epochs without a better val macro-F1 (0 = off)
+    # maximum number of epochs, including the head-only epochs
+    epochs: int
+    # early stopping after this many epochs without a better val macro-F1 (0 = off)
+    patience: int = 0
 
-    # pre-trained models: head-only epochs first, then fine-tuning
+    # Pre-trained models: head-only epochs first, then fine-tuning.
     head_epochs: int = 0
-    head_lr: float | None = None  # classifier head during the head-only epochs
-    finetune_head_lr: float | None = (
-        None  # classifier head after them (None: same as `lr`)
-    )
-    finetune: Literal["head", "partial", "full"] = (
-        "full"  # what is unfrozen after the head epochs
-    )
-    trainable_blocks: int | None = (
-        None  # finetune="partial": number of last ViT encoder blocks
-    )
+    # learning rate of the classifier head during the head-only epochs
+    head_lr: float | None = None
+    # learning rate of the classifier head after them (None: same as `lr`)
+    finetune_head_lr: float | None = None
+    # what is unfrozen after the head-only epochs
+    finetune: Literal["head", "partial", "full"] = "full"
+    # finetune="partial": number of last ViT encoder blocks that are trained
+    trainable_blocks: int | None = None
 
-    # derived runs (Sections 15 and 18)
+    # Derived runs (Sections 15 and 18).
     input: Literal["color", "grayscale", "segmented"] = "color"
-    background_swap: float = (
-        0.0  # share of the training photos with a random background
-    )
-    class_matched_background: bool = (
-        False  # control: the background comes from the same class
-    )
+    # share of the training photos that get a random background
+    background_swap: float = 0.0
+    # control: the background comes from a photo of the same class
+    class_matched_background: bool = False
 
     @model_validator(mode="after")
     def check_consistency(self) -> Self:
@@ -67,7 +67,7 @@ class RunConfig(BaseModel):
 
 class RunHistory(BaseModel):
     # History of one training run (saved in history.json): one entry per trained epoch in every list.
-    # older files also contain 'peak_memory_mib'
+    # Unknown fields of older files are ignored.
     model_config = ConfigDict(extra="ignore")
 
     train_loss: list[float] = []
@@ -106,14 +106,18 @@ class RunHistory(BaseModel):
         val_f1: float,
         val_time: float,
     ) -> None:
-        # Record one finished epoch.
-        self.lr.append(lr)
-        self.trainable_params.append(trainable_params)
-        self.train_loss.append(train_loss)
-        self.train_acc.append(train_acc)
-        self.train_time.append(train_time)
-        self.val_loss.append(val_loss)
-        self.val_acc.append(val_acc)
-        self.val_f1.append(val_f1)
-        self.val_time.append(val_time)
-        self.epoch_time.append(train_time + val_time)
+        # Record one finished epoch: append every value to its per-epoch list.
+        values = {
+            "lr": lr,
+            "trainable_params": trainable_params,
+            "train_loss": train_loss,
+            "train_acc": train_acc,
+            "train_time": train_time,
+            "val_loss": val_loss,
+            "val_acc": val_acc,
+            "val_f1": val_f1,
+            "val_time": val_time,
+            "epoch_time": train_time + val_time,
+        }
+        for name, value in values.items():
+            getattr(self, name).append(value)

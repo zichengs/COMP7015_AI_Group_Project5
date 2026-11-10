@@ -22,7 +22,8 @@ def class_weights(df: pd.DataFrame, train_idx: np.ndarray) -> torch.Tensor:
 
 @dataclass
 class Data:
-    df: pd.DataFrame  # photos with an official leaf id: one row per photo, with leaf id and split
+    # photos with an official leaf id: one row per photo, with leaf id and split
+    df: pd.DataFrame
     images: torch.Tensor  # cached uint8 images (N, 3, H, W), aligned with df
     labels: torch.Tensor
     train_idx: np.ndarray

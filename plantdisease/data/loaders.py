@@ -43,12 +43,10 @@ class CachedDataset(Dataset):
         indices: np.ndarray,
         transform: Callable[[torch.Tensor], torch.Tensor],
     ) -> None:
-        self.images, self.labels, self.indices, self.transform = (
-            images,
-            labels,
-            indices,
-            transform,
-        )
+        self.images = images
+        self.labels = labels
+        self.indices = indices
+        self.transform = transform
 
     def __len__(self) -> int:
         return len(self.indices)

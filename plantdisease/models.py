@@ -19,10 +19,10 @@ class SEBlock(nn.Module):
         )
 
     def forward(self, x: Tensor) -> Tensor:
-        weights = self.fc(
-            x.mean(dim=(2, 3))
-        )  # squeeze: one value per channel -> attention weight in (0, 1)
-        return x * weights[:, :, None, None]  # excite: re-weight the channels
+        # squeeze: one value per channel -> attention weight in (0, 1)
+        weights = self.fc(x.mean(dim=(2, 3)))
+        # excite: re-weight the channels
+        return x * weights[:, :, None, None]
 
 
 class CustomCNN(nn.Module):
@@ -31,12 +31,8 @@ class CustomCNN(nn.Module):
     ) -> None:
         super().__init__()
         layers = []
-        for c_in, c_out in [
-            (3, 32),
-            (32, 64),
-            (64, 128),
-            (128, 256),
-        ]:  # 224 -> 112 -> 56 -> 28 -> 14
+        # four conv blocks, each halves the size: 224 -> 112 -> 56 -> 28 -> 14
+        for c_in, c_out in [(3, 32), (32, 64), (64, 128), (128, 256)]:
             layers += [
                 nn.Conv2d(c_in, c_out, kernel_size=3, padding=1, bias=False),
                 nn.BatchNorm2d(c_out),
@@ -92,9 +88,8 @@ def set_trainable(model: nn.Module, cfg: RunConfig, stage: str) -> None:
     #   'head'    the classifier only (backbone frozen throughout)
     #   'partial' the last cfg.trainable_blocks ViT encoder blocks, the final LayerNorm and the classifier
     #   'full'    every parameter, including patch embedding, position embedding and class token (default)
-    if (
-        cfg.arch not in HEAD_PREFIX
-    ):  # models trained from scratch: everything is trainable
+    if cfg.arch not in HEAD_PREFIX:
+        # models trained from scratch: everything is trainable
         return
     scope = "head" if stage == "head" else cfg.finetune
     if scope == "full":
@@ -102,8 +97,9 @@ def set_trainable(model: nn.Module, cfg: RunConfig, stage: str) -> None:
         return
     trainable = HEAD_PREFIX[cfg.arch]
     if scope == "partial":
-        n = cfg.trainable_blocks
-        blocks = [f"encoder.layers.encoder_layer_{i}." for i in range(12 - n, 12)]
+        n_blocks = len(model.encoder.layers)  # 12 for ViT-B/16
+        last = range(n_blocks - cfg.trainable_blocks, n_blocks)
+        blocks = [f"encoder.layers.encoder_layer_{i}." for i in last]
         trainable = (*trainable, *blocks, "encoder.ln.")
     for name, p in model.named_parameters():
         p.requires_grad = name.startswith(trainable)

@@ -39,33 +39,33 @@ def build_cache(paths: Iterable[str], name: str) -> torch.Tensor:
     return images
 
 
+SEGMENTED_SUFFIX = "_final_masked.jpg"
+
+
 @cache
-def segmented_by_name(folder: str) -> dict[str, str]:
-    # {original photo name: segmented file} of a segmented folder, for colour photos without the
-    # UUID prefix ('RS_Rust 1563.JPG' -> '<uuid>___RS_Rust 1563_final_masked.jpg').
-    if not os.path.isdir(folder):
-        return {}
-    return {
-        f.split("___")[-1].removesuffix("_final_masked.jpg"): f
-        for f in os.listdir(folder)
-    }
+def segmented_files(folder: str) -> tuple[set[str], dict[str, str]]:
+    # The files of a segmented folder, and {photo name without UUID: file} for looking them up.
+    files = os.listdir(folder) if os.path.isdir(folder) else []
+    by_name = {f.split("___")[-1].removesuffix(SEGMENTED_SUFFIX): f for f in files}
+    return set(files), by_name
 
 
 def segmented_path(path: str) -> str:
-    # Segmented counterpart of a photo ('<name>_final_masked.jpg').
-    # A few segmented files lack the UUID prefix ('Com.G_SpM_FL 1378_final_masked.jpg'):
-    # then the original photo name after '___' is used.
+    # Segmented counterpart of a colour photo '<uuid>___<name>.JPG' (the file may not exist).
+    # Usually '<uuid>___<name>_final_masked.jpg', but the UUID prefix can be missing on either side:
+    #   segmented file without it:    'Com.G_SpM_FL 1378_final_masked.jpg'
+    #   colour photo without it:      'RS_Rust 1563.JPG' -> '<uuid>___RS_Rust 1563_final_masked.jpg'
     class_name, file_name = path.split(os.sep)[-2:]
     folder = os.path.join(PATHS_CONFIG["data_root"], "raw", "segmented", class_name)
     stem = os.path.splitext(file_name)[0]
-    exact = os.path.join(folder, stem + "_final_masked.jpg")
-    if os.path.exists(exact):
-        return exact
-    by_name = os.path.join(folder, stem.split("___")[-1] + "_final_masked.jpg")
-    if os.path.exists(by_name) or "___" in stem:
-        return by_name
-    match = segmented_by_name(folder).get(stem)
-    return os.path.join(folder, match) if match else by_name
+    files, by_name = segmented_files(folder)
+    if stem + SEGMENTED_SUFFIX in files:  # the same name
+        file = stem + SEGMENTED_SUFFIX
+    elif "___" in stem:  # segmented file without the UUID prefix
+        file = stem.split("___")[-1] + SEGMENTED_SUFFIX
+    else:  # colour photo without the UUID prefix
+        file = by_name.get(stem, stem + SEGMENTED_SUFFIX)
+    return os.path.join(folder, file)
 
 
 def load_segmented(paths: Iterable[str], name: str) -> tuple[torch.Tensor, np.ndarray]:

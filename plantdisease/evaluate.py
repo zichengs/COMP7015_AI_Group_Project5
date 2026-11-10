@@ -8,7 +8,7 @@ covers the randomness of training, not the choice of test leaves.
 
 import os
 import time
-from collections.abc import Iterable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from itertools import pairwise
 from typing import Any
 
@@ -36,8 +36,8 @@ def macro_f1(
     y_true: npt.ArrayLike, y_pred: npt.ArrayLike, labels: npt.ArrayLike | None = None
 ):
     # labels=None: the classes that occur or are predicted.
-    # labels given (Sections 19, 25-28): average over these classes; a prediction into any other
-    # class is an error.
+    # labels given (field photos, Section 19): average over these classes only; a prediction into
+    # any other class is still an error.
     return f1_score(y_true, y_pred, labels=labels, average="macro", zero_division=0)
 
 
@@ -51,6 +51,15 @@ def mean_sd(values: npt.ArrayLike, digits: int = 4, scale: float = 1) -> str:
     # 'mean ± sd' over the seeds, e.g. '0.9928 ± 0.0011'.
     values = np.asarray(values, dtype=float) * scale
     return f"{values.mean():.{digits}f} ± {sd(values):.{digits}f}"
+
+
+def mean_and_sd(values: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    # Per-column mean and sample sd over the rows, ignoring NaN (sd 0 where only one value is left).
+    # Used for learning curves: rows = seeds, columns = epochs, NaN after a run stopped early.
+    n = np.sum(~np.isnan(values), 0)
+    mean = np.nanmean(values, 0)
+    spread = np.sqrt(np.nansum((values - mean) ** 2, 0) / np.maximum(n - 1, 1))
+    return mean, spread
 
 
 def seed_scores(
@@ -166,13 +175,11 @@ def grad_cam(model: nn.Module, layer: nn.Module, x: torch.Tensor) -> torch.Tenso
         handle.remove()
         for p, t in zip(model.parameters(), trainable, strict=True):
             p.requires_grad_(t)
-    weights = grad.mean(dim=(2, 3), keepdim=True)  # importance of each feature map
-    cam = F.relu(
-        (weights * store["act"].detach()).sum(1, keepdim=True)
-    )  # weighted sum of feature maps
-    cam = F.interpolate(cam, size=x.shape[-2:], mode="bilinear", align_corners=False)[
-        :, 0
-    ]
+    # importance of each feature map, then the weighted sum of the feature maps
+    weights = grad.mean(dim=(2, 3), keepdim=True)
+    cam = F.relu((weights * store["act"].detach()).sum(1, keepdim=True))
+    cam = F.interpolate(cam, size=x.shape[-2:], mode="bilinear", align_corners=False)
+    cam = cam[:, 0]
     return (cam / (cam.amax(dim=(1, 2), keepdim=True) + 1e-8)).detach().cpu()
 
 
@@ -221,6 +228,12 @@ def leaf_share_table(
 ) -> pd.DataFrame:
     # Mean leaf share over the test photos, per model and test condition (mean ± sd over the seeds).
     # Per-photo shares are cached in <run>/preds/ like the predictions, keyed by images and masks.
+    def share_job(images: torch.Tensor, arch: str) -> Callable[[nn.Module], np.ndarray]:
+        def compute(model: nn.Module) -> np.ndarray:
+            return leaf_attention(model, LAYER_OF[arch](model), images, masks)
+
+        return compute
+
     rows = []
     mask_id = fingerprint(masks)
     files = {
@@ -228,13 +241,8 @@ def leaf_share_table(
         for v in variants
     }
     for name in model_names:
-        layer_of = LAYER_OF[config_of(name).arch]
-        jobs = {
-            files[v]: lambda model, images=tests[v], layer_of=layer_of: leaf_attention(
-                model, layer_of(model), images, masks
-            )
-            for v in variants
-        }
+        arch = config_of(name).arch
+        jobs = {files[v]: share_job(tests[v], arch) for v in variants}
         arrays = [cached_arrays(name, seed, jobs) for seed in TRAIN_CONFIG["seeds"]]
         for variant in variants:
             per_seed = [np.nanmean(a[files[variant]]) for a in arrays]
@@ -253,27 +261,23 @@ def leaf_share_table(
 # ----------------------------------------------------------------------------
 # Section 19: field photos
 # ----------------------------------------------------------------------------
-def shift_table(
+def field_table(
     models: Sequence[str],
     preds: dict[tuple[str, int, str], np.ndarray],
-    shift_set: str,
-    *,
-    y: np.ndarray,
-    y_clean: np.ndarray,
-    columns: tuple[str, str],
+    y_field: np.ndarray,
+    y_test: np.ndarray,
 ) -> tuple[pd.DataFrame, dict[str, np.ndarray], dict[str, np.ndarray]]:
-    # Macro-F1 over the classes that occur in y: on the shifted photos and on the clean test photos
-    # of the same classes (mean ± sd over the seeds). preds: {(model, seed, set name): predicted classes}.
-    # columns = (clean column, shifted column).
-    # Returns (table, seed scores on the clean photos, seed scores on the shifted photos).
-    clean_col, shift_col = columns
-    labels = np.unique(y)
-    same = np.isin(y_clean, labels)  # clean test photos of the same classes
-    shifted = seed_scores(models, preds, shift_set, y, labels)
+    # Macro-F1 over the classes that occur in the field photos: on the field photos ('field') and
+    # on the clean test photos of the same classes ('test'), mean ± sd over the seeds.
+    # preds: {(model, seed, 'test' or 'field'): predicted classes}.
+    # Returns (table, seed scores on the clean test, seed scores on the field photos).
+    labels = np.unique(y_field)
+    same = np.isin(y_test, labels)  # clean test photos of the same classes
+    field = seed_scores(models, preds, "field", y_field, labels)
     clean = {
         name: np.array(
             [
-                macro_f1(y_clean[same], preds[(name, s, "test")][same], labels)
+                macro_f1(y_test[same], preds[(name, s, "test")][same], labels)
                 for s in TRAIN_CONFIG["seeds"]
             ]
         )
@@ -281,13 +285,13 @@ def shift_table(
     }
     table = pd.DataFrame(
         {
-            clean_col: [mean_sd(clean[n], 3) for n in models],
-            shift_col: [mean_sd(shifted[n], 3) for n in models],
-            "drop": [clean[n].mean() - shifted[n].mean() for n in models],
+            "clean test": [mean_sd(clean[n], 3) for n in models],
+            "field photos": [mean_sd(field[n], 3) for n in models],
+            "drop": [clean[n].mean() - field[n].mean() for n in models],
         },
         index=pd.Index(models, name="model"),
     )
-    return table, clean, shifted
+    return table, clean, field
 
 
 def comparison_table(

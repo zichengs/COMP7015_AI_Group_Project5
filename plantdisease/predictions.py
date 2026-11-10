@@ -31,8 +31,7 @@ def predict(model: nn.Module, loader: DataLoader) -> tuple[torch.Tensor, torch.T
 
 
 def load_model(name: str, seed: int) -> nn.Module:
-    # Rebuild a model and load its best checkpoint.
-    # the checkpoint holds all weights
+    # Rebuild a model and load its best checkpoint (which holds all weights).
     model = build_model(config_of(name), pretrained=False)
     state = torch.load(
         os.path.join(run_path(name, seed), "best.pt"), map_location="cpu"
@@ -42,6 +41,7 @@ def load_model(name: str, seed: int) -> nn.Module:
 
 
 def fingerprint(images: torch.Tensor) -> str:
+    # Short hash of a tensor's content: a cached result is only reused for the same images.
     return hashlib.md5(images.numpy().tobytes()).hexdigest()[:10]  # noqa: S324
 
 
@@ -70,13 +70,15 @@ def predict_probs(
 ) -> dict[tuple[str, int, str], np.ndarray]:
     # Softmax probabilities for every (model, seed, test set): {(name, seed, set name): (N, K) array}.
     # They are cached in <run>/preds/, keyed by the image content.
+    def probs_job(images: torch.Tensor) -> Callable[[nn.Module], np.ndarray]:
+        def compute(model: nn.Module) -> np.ndarray:
+            logits, _ = predict(model, eval_loader(images))
+            return logits.softmax(1).numpy()
+
+        return compute
+
     files = {s: f"{safe_name(s)}_{fingerprint(i)}.npy" for s, i in image_sets.items()}
-    jobs = {
-        files[s]: lambda model, images=images: predict(model, eval_loader(images))[0]
-        .softmax(1)
-        .numpy()
-        for s, images in image_sets.items()
-    }
+    jobs = {files[s]: probs_job(images) for s, images in image_sets.items()}
     probs = {}
     for name in names:
         for seed in seeds:

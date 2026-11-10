@@ -1,0 +1,4 @@
+{
+  "cnn": "SE-CNN (full recipe)",
+  "resnet18": "ResNet18 weight decay 1e-2"
+}
