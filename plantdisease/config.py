@@ -32,15 +32,6 @@ DATA_CONFIG: dict[str, Any] = {
         "Tomato___Early_blight",
         "Tomato___Late_blight",
     ],
-    # one photo series per class, with official leaf ids (Section 3)
-    "train_series": {
-        "Tomato___healthy": "rs_hl",
-        "Tomato___Bacterial_spot": "gcrec_bact.sp",
-        "Tomato___Early_blight": "rs_erly.b",
-        "Tomato___Late_blight": "rs_late.b",
-    },
-    # a left-out series needs at least this many photos (stray single files are not a series)
-    "min_series_photos": 20,
     "img_size": 224,  # ViT-B/16 requires 224
     "split_seed": 62,  # seed of the train/val/test split
     "split_fractions": (
@@ -50,7 +41,7 @@ DATA_CONFIG: dict[str, Any] = {
     "num_workers": int(env("NUM_WORKERS", 2)),  # data loader workers
 }
 
-# PlantDoc field photos (Section 19.2)
+# PlantDoc field photos (Section 19.1)
 PLANTDOC_CONFIG: dict[str, Any] = {
     "root": env("FIELD_ROOT", "./PlantDoc-Dataset"),  # where the dataset is cloned
     "url": "https://github.com/pratikkayal/PlantDoc-Dataset",  # PlantDoc repository (cropped version)

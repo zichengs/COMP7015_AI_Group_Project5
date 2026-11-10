@@ -34,7 +34,7 @@ def download_plantvillage() -> None:
 
 
 # ----------------------------------------------------------------------------
-# Section 19.2: PlantDoc field photos
+# Section 19.1: PlantDoc field photos
 # ----------------------------------------------------------------------------
 def download_github_folders(url: str, root: str, folders: list[str]) -> list[str]:
     # Download `folders` of a GitHub repository file by file over HTTPS (no git needed); returns the
@@ -79,7 +79,7 @@ def download_github_folders(url: str, root: str, folders: list[str]) -> list[str
 
 
 def field_records(folders: dict[str, int]) -> pd.DataFrame:
-    # PlantDoc photos (Section 19.2) of `folders` ({PlantDoc folder: class index}), from the
+    # PlantDoc photos (Section 19.1) of `folders` ({PlantDoc folder: class index}), from the
     # authors' train and test folders: all are test data here. Missing folders are downloaded;
     # folders that are not complete (download failed) are skipped.
     root = PLANTDOC_CONFIG["root"]

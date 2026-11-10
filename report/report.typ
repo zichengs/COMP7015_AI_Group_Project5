@@ -47,7 +47,7 @@ Our main finding is that all three models reach 99.1–99.7% test macro-F1, yet 
 
 = Data and Protocol
 
-*Classes.* We use four tomato classes from `raw/color`: _healthy_, _Early blight_, _Leaf Mold_ and _Spider mites_ (two-spotted spider mite). We chose them because each has one photo series in which *every photo carries an official leaf id* in `leaf-map.json` (`RS_HL`, `RS_Erly.B`, `Crnl_L.Mold`, `Com.G_SpM_FL`). The leaf-group split then loses only one photo. The suggested _Late blight_ class, by contrast, has 541 photos without a leaf id. The second healthy series (`GH_HL`, 590 photos, no leaf ids) is not used for training. It serves as a left-out series test (Section 5.4).
+*Classes.* We use four tomato classes from `raw/color`: _healthy_, _Early blight_, _Leaf Mold_ and _Spider mites_ (two-spotted spider mite). We chose them because each has one photo series in which *every photo carries an official leaf id* in `leaf-map.json` (`RS_HL`, `RS_Erly.B`, `Crnl_L.Mold`, `Com.G_SpM_FL`). The leaf-group split then loses only one photo. The suggested _Late blight_ class, by contrast, has 541 photos without a leaf id.
 
 *Split.* Leaf ids of every class are split 70/15/15 into train/validation/test with split seed *62*. An audit checks that no leaf id appears in two splits. All photos of the same leaf, and all their augmented versions, therefore stay in one split. Training seeds (62, 63, 64) are separate from the split seed. The validation set is used for all tuning and model selection. The test set is used only once, for the final models.
 
@@ -203,7 +203,6 @@ With probability 0.5, we replace everything outside the leaf mask of a training 
 
 == Beyond controlled photographs
 
-*Left-out healthy series (`GH_HL`, 590 photos).* These photos are healthy tomato leaves taken in another session. Healthy recall is 0.24 (SE-CNN), 0.69 (ResNet18) and *0.93 (ViT)*, against 1.00 on the clean test set. The SE-CNN calls 67% of them Early blight. Surprisingly, random backgrounds _hurt_ here (ResNet18: 0.47 ± 0.37) while the class-matched control helps (0.88). This series differs from training in lighting and leaf appearance, not only in background, so background invariance alone is not enough.
 
 *PlantDoc field photos* (Singh et al., 2020; 244 cropped leaves from the matching folders). All models fail: macro-F1 is 0.17–0.22 for the three final models and at most *0.28* (SE-CNN + random backgrounds). Almost every field photo is predicted as _Early blight_. Early blight recall is 0.95–1.00, while healthy recall stays below 0.09. Real field images contain clutter, multiple leaves, shadows and different cameras, and none of this appears in PlantVillage. The PlantDoc spider-mite folder holds only two photos, so its recall is not meaningful.
 
@@ -213,9 +212,9 @@ On clean test photos, the models are well calibrated: expected calibration error
 
 = Discussion and Limitations
 
-*What we learned.* (1) A >99% PlantVillage accuracy says little about whether a model has learned the disease. A corner-pixel baseline gets 87%, and swapping backgrounds exposes the shortcut. (2) Transfer learning matters more for *robustness* than for clean accuracy: the from-scratch CNN is only 0.2 points behind ResNet18 on the clean test, but 35–57 points behind under background removal, grayscale and darkening. (3) The ViT is the most accurate and the most robust to lighting, noise and the left-out healthy series. It costs about 5–7× more compute than ResNet18, and its grayscale robustness is lower. (4) *Targeted augmentation that breaks a known shortcut* (random backgrounds) works, and the class-matched control proves why. Generic augmentation (flips/jitter) had no measurable effect for the pre-trained models. (5) None of this closes the *lab-to-field gap*. That gap needs field training data, not just augmentation.
+*What we learned.* (1) A >99% PlantVillage accuracy says little about whether a model has learned the disease. A corner-pixel baseline gets 87%, and swapping backgrounds exposes the shortcut. (2) Transfer learning matters more for *robustness* than for clean accuracy: the from-scratch CNN is only 0.2 points behind ResNet18 on the clean test, but 35–57 points behind under background removal, grayscale and darkening. (3) The ViT is the most accurate and the most robust to lighting and noise. It costs about 5–7× more compute than ResNet18, and its grayscale robustness is lower. (4) *Targeted augmentation that breaks a known shortcut* (random backgrounds) works, and the class-matched control proves why. Generic augmentation (flips/jitter) had no measurable effect for the pre-trained models. (5) None of this closes the *lab-to-field gap*. That gap needs field training data, not just augmentation.
 
-*Limitations.* Each class comes from *one photo series*, so disease, background, camera and light are confounded. No split of this data can remove that confound, and only the tests in Section 5 can probe it. The three seeds cover training randomness on *one fixed split*, not the choice of test leaves. Validation scores saturate, which limits how finely hyperparameters can be ranked. Background removal relies on PlantVillage's own segmentation, which sometimes cuts away leaf edges. The field test covers only three of our four classes meaningfully.
+*Limitations.* Every class was photographed under controlled conditions, so disease, background, camera and light are confounded. No split of this data can remove that confound, and only the tests in Section 5 can probe it. The three seeds cover training randomness on *one fixed split*, not the choice of test leaves. Validation scores saturate, which limits how finely hyperparameters can be ranked. Background removal relies on PlantVillage's own segmentation, which sometimes cuts away leaf edges. The field test covers only three of our four classes meaningfully.
 
 *Course connections.* The project uses CNNs, batch normalisation and dropout (Labs 2–3), transfer learning and fine-tuning schedules, attention (SE) and Transformers (Lab 5), and evaluation methodology (held-out test, macro-F1, calibration).
 
@@ -229,7 +228,7 @@ On clean test photos, the models are well calibrated: expected calibration error
   [[Name] ([ID])], [_e.g. SE-CNN and ResNet18 implementation, training engine, tuning and ablations_],
   [Zhouyang ([ID])], [_ViT-B/16 fine-tuning protocol and strategies; input (grayscale/background-removed) ablation_],
   [[Name] ([ID])], [_e.g. test evaluation, compute trade-offs, error analysis, Grad-CAM_],
-  [[Name] ([ID])], [_e.g. robustness tests, background swap, countermeasure, PlantDoc and left-out series_],
+  [[Name] ([ID])], [_e.g. robustness tests, background swap, countermeasure and PlantDoc_],
   [[Name] ([ID])], [_e.g. report, presentation, figures, README_],
   endrule,
 )

@@ -14,7 +14,7 @@ Without uv: `pip install torch torchvision torchinfo scikit-learn scipy pandas m
 
 The code runs on an NVIDIA GPU (CUDA, with mixed precision), on Apple silicon (MPS) and on the CPU; the device is chosen automatically.
 
-The dataset is downloaded by the first notebook: `git clone --depth 1` of the whole PlantVillage repository (about 2 GB, latest files only; git is required). If `PlantVillage-Dataset/raw/color` already exists, the download is skipped. Section 19.2 also downloads the matching folders of [PlantDoc](https://github.com/pratikkayal/PlantDoc-Dataset). It is skipped if the download fails.
+The dataset is downloaded by the first notebook: `git clone --depth 1` of the whole PlantVillage repository (about 2 GB, latest files only; git is required). If `PlantVillage-Dataset/raw/color` already exists, the download is skipped. Section 19.1 also downloads the matching folders of [PlantDoc](https://github.com/pratikkayal/PlantDoc-Dataset). It is skipped if the download fails.
 
 ## Running
 
@@ -26,7 +26,7 @@ Run the notebooks in order, from the repository root:
 | `02_cnn_resnet.ipynb` | 7–9 | custom CNN and ResNet18, training engine, tuning and ablations, selection with all seeds |
 | `03_vit.ipynb` | 10 | ViT-B/16 fine-tuning strategies (head only, last two blocks, full) and augmentation ablation, selection |
 | `04_test_evaluation.ipynb` | 11–13 | test results of the final models over 3 seeds, compute trade-offs (inference and training cost), error analysis, Grad-CAM |
-| `05_robustness.ipynb` | 14–20 | background-only baseline (what four image corners reveal); robustness to background removal, grayscale, lighting, blur and noise; ViT retrained on grayscale and background-removed photos; the same leaf on other backgrounds; leaf attention; countermeasure (random backgrounds); left-out photo series and PlantDoc field photos; confidence and abstention |
+| `05_robustness.ipynb` | 14–20 | background-only baseline (what four image corners reveal); robustness to background removal, grayscale, lighting, blur and noise; ViT retrained on grayscale and background-removed photos; the same leaf on other backgrounds; leaf attention; countermeasure (random backgrounds); PlantDoc field photos; confidence and abstention |
 | `06_discussion.ipynb` | 21–22 | all key tables in one place, discussion |
 
 Every training run is saved under `outputs/runs/<run>__seed<seed>/`: the best checkpoint, the history (including training time, peak memory and whether it stopped early) and the configuration. Re-running a notebook loads finished runs instead of retraining them, and it reuses cached predictions. So an interrupted run can simply be resumed, and every notebook can be re-run on its own once the earlier ones have run. Notebooks 02 and 03 write the selected models to `outputs/final_models.json`.
@@ -41,7 +41,7 @@ EPOCHS_CNN=1 EPOCHS_RESNET=2 EPOCHS_VIT=4 SEEDS=62 OUT_DIR=./outputs_quick jupyt
 
 ## Method
 
-- **Data.** One photo series per class with official leaf ids (`RS_HL`, `RS_Erly.B`, `Crnl_L.Mold`, `Com.G_SpM_FL`). The official leaf ids of every class are split 70/15/15 with a fixed seed, and the audit checks that no leaf id crosses splits. The healthy series `GH_HL` has no leaf ids and is used only as a left-out series test.
+- **Data.** Every photo of the four classes with an official leaf id in `leaf-map.json`; photos without one are excluded. The official leaf ids of every class are split 70/15/15 with a fixed seed, and the audit checks that no leaf id crosses splits.
 - **Preprocessing.** Every photo is resized to 224×224 once and cached. Training augmentation: flips, 90° rotations, ±10% brightness/contrast.
 - **ViT** (Zhouyang's protocol). 3 epochs train only the new head (lr 1e-3). Then the head (lr 1e-4) and the unfrozen backbone (lr 1e-5) train for up to 12 more epochs. AdamW with weight decay 0.01, constant learning rate, batch 16, no class weights. Three strategies: head only, partial (last 2 blocks + final LayerNorm) and full fine-tuning.
 - **Early stopping.** Every run stops when the validation macro-F1 has not improved for `patience` epochs of its last training stage (5 epochs for every model, `patience` of the recipes in notebooks 02 and 03); the checkpoint of the best epoch is kept.
@@ -53,7 +53,7 @@ EPOCHS_CNN=1 EPOCHS_RESNET=2 EPOCHS_VIT=4 SEEDS=62 OUT_DIR=./outputs_quick jupyt
 The settings live in `plantdisease/config.py`, in four dictionaries:
 
 - `PATHS_CONFIG`: where the data, the image cache and the results live;
-- `DATA_CONFIG`: the PlantVillage protocol (classes, training series, image size, split seed and fractions, loader workers);
+- `DATA_CONFIG`: the PlantVillage protocol (classes, image size, split seed and fractions, loader workers);
 - `PLANTDOC_CONFIG`: the PlantDoc field photos (folder, repository URL, folder of each class);
 - `TRAIN_CONFIG`: training seeds and the background-swap probability. The maximum epochs and the early-stopping patience are part of each model recipe (notebooks 02 and 03).
 
@@ -64,7 +64,7 @@ The model recipes (learning rate, batch size, freezing, epochs, ...) are defined
 | `DATA_ROOT` | `./PlantVillage-Dataset` | PlantVillage checkout |
 | `CACHE_DIR` | `./cache` | decoded and resized images (uint8 tensors) |
 | `OUT_DIR` | `./outputs` | runs, tables (`.csv`) and figures (`.png`) |
-| `FIELD_ROOT` | `./PlantDoc-Dataset` | PlantDoc checkout (Section 19.2) |
+| `FIELD_ROOT` | `./PlantDoc-Dataset` | PlantDoc checkout (Section 19.1) |
 | `SEEDS` | `62,63,64` | training seeds |
 | `EPOCHS_CNN`, `EPOCHS_RESNET`, `EPOCHS_VIT` | `50`, `16`, `15` | maximum training epochs |
 | `PATIENCE_CNN`, `PATIENCE_RESNET`, `PATIENCE_VIT` | `5`, `5`, `5` | early stopping: epochs without a better validation macro-F1 (0 = off) |
@@ -82,7 +82,7 @@ The notebooks show the steps and the results. The shared code is in the `plantdi
 | `device.py` | device, mixed precision, determinism, `set_seed`, `synchronize` |
 | `data/download.py` | PlantVillage (`git clone --depth 1`) and PlantDoc (file by file) downloads |
 | `data/leafmap.py` | leaf ids from `leaf-map.json` (no torch; also used by `database/build_db.py`) |
-| `data/records.py` | photo table, series, leaf-group split with leakage audit, data fingerprint |
+| `data/records.py` | photo table, leaf-group split with leakage audit, data fingerprint |
 | `data/images.py` | image cache (decode and resize once), segmented and grayscale versions |
 | `data/loaders.py` | transforms and augmentation, `CachedDataset`, data loaders |
 | `data/dataset.py` | the `Data` object and `prepare()`, which rebuilds the whole data protocol in one call |

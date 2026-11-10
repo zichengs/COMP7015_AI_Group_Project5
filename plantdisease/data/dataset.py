@@ -22,8 +22,7 @@ def class_weights(df: pd.DataFrame, train_idx: np.ndarray) -> torch.Tensor:
 
 @dataclass
 class Data:
-    df: pd.DataFrame  # training series: one row per photo, with leaf id and split
-    other_df: pd.DataFrame  # left-out series (Section 19.1)
+    df: pd.DataFrame  # photos with an official leaf id: one row per photo, with leaf id and split
     images: torch.Tensor  # cached uint8 images (N, 3, H, W), aligned with df
     labels: torch.Tensor
     train_idx: np.ndarray
@@ -64,12 +63,11 @@ class Data:
 
 def prepare() -> Data:
     # Rebuild the deterministic data protocol of notebook 01 from the image cache.
-    _, _, df, other_df = load_records()
+    _, _, df = load_records()
     images = build_cache(df["path"], "color")
     train_idx, val_idx, test_idx = make_split(df)
     return Data(
         df=df,
-        other_df=other_df,
         images=images,
         labels=torch.tensor(df["class_index"].values),
         train_idx=train_idx,

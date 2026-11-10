@@ -251,7 +251,7 @@ def leaf_share_table(
 
 
 # ----------------------------------------------------------------------------
-# Section 19: left-out series and field photos
+# Section 19: field photos
 # ----------------------------------------------------------------------------
 def shift_table(
     models: Sequence[str],

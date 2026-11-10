@@ -7,9 +7,9 @@ import re
 
 IMAGE_SUFFIXES = (".jpg", ".jpeg", ".png")
 EXT_PATTERN = re.compile(r"\.(jpe?g|png)$", flags=re.IGNORECASE)
-SERIES_PATTERN = re.compile(
+GREENHOUSE_LEAF_PATTERN = re.compile(
     r"^(gh_hl|ghlb_ps|ghlb2es|ghlb2|ghlb) leaf (\d+)"
-)  # greenhouse series with leaf numbers in the file name
+)  # greenhouse file names with leaf numbers
 # leaf-map.json names Apple black rot after its leaf symptom (frogeye leaf spot, same fungus)
 LEAF_MAP_CLASS_ALIASES = {"Apple_Frogeye Spot": "Apple___Black_rot"}
 # Target Spot files were renamed after the leaf map was made: 'Com.G_TgS_FL 0004' -> 'com.g_fl 0004'
@@ -49,7 +49,7 @@ def get_leaf_id(
             if leaf_class(entry) == class_name:
                 return entry, "leaf map"
 
-    match = SERIES_PATTERN.match(key)
+    match = GREENHOUSE_LEAF_PATTERN.match(key)
     # numbers >= 1000 are photo counters, not leaf numbers
     if match and int(match.group(2)) < 1000:
         return f"{class_name}:::{match.group(1)} leaf {match.group(2)}", "file name"

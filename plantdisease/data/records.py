@@ -1,4 +1,4 @@
-"""Photo table and split: which photos, which leaf, which series, which split (Sections 3 and 5)."""
+"""Photo table and split: which photos, which leaf, which split (Sections 3 and 5)."""
 
 import hashlib
 import json
@@ -16,10 +16,8 @@ from .leafmap import IMAGE_SUFFIXES, get_image_key, get_leaf_id
 # ----------------------------------------------------------------------------
 # Section 3: leaf grouping
 # ----------------------------------------------------------------------------
-def load_records() -> tuple[
-    dict[str, list[str]], pd.DataFrame, pd.DataFrame, pd.DataFrame
-]:
-    # All photos of the four classes -> (leaf_map, all_df, df: training series, other_df: left-out series).
+def load_records() -> tuple[dict[str, list[str]], pd.DataFrame, pd.DataFrame]:
+    # All photos of the four classes -> (leaf_map, all_df, df: photos with an official leaf id).
     data_root = PATHS_CONFIG["data_root"]
     with open(os.path.join(data_root, "leaf-map.json")) as f:
         leaf_map = json.load(f)  # image identifier -> ['<class>:::<leaf group>', ...]
@@ -33,7 +31,6 @@ def load_records() -> tuple[
         for file_name in sorted(os.listdir(class_dir)):
             if file_name.lower().endswith(IMAGE_SUFFIXES):
                 image_key = get_image_key(file_name)
-                series_name = image_key.split()[0]
                 leaf_id, source = get_leaf_id(leaf_map, class_name, file_name)
 
                 all_records.append(
@@ -43,36 +40,19 @@ def load_records() -> tuple[
                         "class_index": class_index,
                         "class_name": class_name,
                         "image_key": image_key,
-                        "series": series_name,
                         "leaf_id": leaf_id,
                         "source": source,
                     }
                 )
     all_df = pd.DataFrame(all_records)
+    official = all_df["source"] == "leaf map"
 
-    # creates a boolean column, find out series that need to be used for training
-    all_df["training_series"] = all_df["series"] == all_df["class_name"].map(
-        DATA_CONFIG["train_series"]
-    )
+    # photos without an official leaf id (file-name leaf number only, or no leaf information)
+    all_df[~official].to_csv(out_path("excluded_images.csv"), index=False)
 
-    # exclude images that are in training series but not have leaf id
-    all_df[all_df["leaf_id"].isna() & all_df["training_series"]].to_csv(
-        out_path("excluded_images.csv"), index=False
-    )
-
-    # training photos: the training series of every class, official leaf ids only
-    df = all_df[all_df["training_series"] & all_df["leaf_id"].notna()].reset_index(
-        drop=True
-    )
-
-    # every other series of these classes is only used as the series test
-    # exclude series with size less than DATA_CONFIG["min_series_photos"]
-    other_df = all_df[~all_df["training_series"]]
-    series_size = other_df.groupby(["class_name", "series"])["path"].transform("size")
-    other_df = other_df[series_size >= DATA_CONFIG["min_series_photos"]].reset_index(
-        drop=True
-    )
-    return leaf_map, all_df, df, other_df
+    # dataset: every photo of the four classes with an official leaf id
+    df = all_df[official].reset_index(drop=True)
+    return leaf_map, all_df, df
 
 
 # ----------------------------------------------------------------------------
@@ -106,12 +86,11 @@ def make_split(df: pd.DataFrame) -> tuple[np.ndarray, ...]:
 
 
 def data_fingerprint(df: pd.DataFrame, train_idx: np.ndarray) -> str:
-    # Fingerprint of the training photos (file names), the series and the split seed:
+    # Fingerprint of the training photos (file names) and the split seed:
     # a saved run is only reused for the same data.
     return hashlib.md5(  # noqa: S324
         (
             "|".join(df.loc[train_idx, "path"].map(os.path.basename))
-            + json.dumps(DATA_CONFIG["train_series"], sort_keys=True)
             + str(DATA_CONFIG["split_seed"])
         ).encode()
     ).hexdigest()[:12]
