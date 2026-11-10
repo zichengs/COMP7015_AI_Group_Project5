@@ -1,4 +1,9 @@
-"""Using finished runs: rebuild a model from its checkpoint and predict, with an on-disk cache."""
+"""Using finished runs: rebuild a model from its checkpoint and predict, with an on-disk cache.
+
+Predictions of several models on several image sets have one layout in every notebook:
+``probs[set name][model name]`` is an array (seeds, N, K), ``preds[set name][model name]`` an array
+(seeds, N). The first axis follows TRAIN_CONFIG["seeds"].
+"""
 
 import hashlib
 import os
@@ -46,45 +51,47 @@ def fingerprint(images: torch.Tensor) -> str:
 
 
 def cached_arrays(
-    name: str, seed: int, jobs: dict[str, Callable[[nn.Module], np.ndarray]]
+    name: str,
+    seed: int,
+    files: dict[str, torch.Tensor],
+    compute: Callable[[nn.Module, torch.Tensor], np.ndarray],
 ) -> dict[str, np.ndarray]:
-    # Results of one run, cached as <run>/preds/<file>: jobs = {file name: compute(model) -> array}.
+    # Results of one run for several image sets, cached as <run>/preds/<file>:
+    # files = {file name: images}, and compute(model, images) gives the array of one file.
     # The model is loaded only if a file is missing; later notebooks reuse the files.
     pred_dir = os.path.join(run_path(name, seed), "preds")
     model, results = None, {}
-    for file, compute in jobs.items():
+    for file, images in files.items():
         path = os.path.join(pred_dir, file)
         if not os.path.exists(path):
             if model is None:
                 model = load_model(name, seed)
             os.makedirs(pred_dir, exist_ok=True)
-            np.save(path, compute(model))
+            np.save(path, compute(model, images))
         results[file] = np.load(path)
     return results
+
+
+def softmax_probs(model: nn.Module, images: torch.Tensor) -> np.ndarray:
+    # Softmax probabilities (N, K) of a model for uint8 images.
+    logits, _ = predict(model, eval_loader(images))
+    return logits.softmax(1).numpy()
 
 
 def predict_probs(
     names: Iterable[str],
     image_sets: dict[str, torch.Tensor],
     seeds: Sequence[int] = TRAIN_CONFIG["seeds"],
-) -> dict[tuple[str, int, str], np.ndarray]:
-    # Softmax probabilities for every (model, seed, test set): {(name, seed, set name): (N, K) array}.
-    # They are cached in <run>/preds/, keyed by the image content.
-    def probs_job(images: torch.Tensor) -> Callable[[nn.Module], np.ndarray]:
-        def compute(model: nn.Module) -> np.ndarray:
-            logits, _ = predict(model, eval_loader(images))
-            return logits.softmax(1).numpy()
-
-        return compute
-
-    files = {s: f"{safe_name(s)}_{fingerprint(i)}.npy" for s, i in image_sets.items()}
-    jobs = {files[s]: probs_job(images) for s, images in image_sets.items()}
-    probs = {}
+) -> dict[str, dict[str, np.ndarray]]:
+    # Softmax probabilities of every model on every image set: probs[set name][model name] is an
+    # array (seeds, N, K). They are cached in <run>/preds/, keyed by the image content.
+    file_of = {s: f"{safe_name(s)}_{fingerprint(i)}.npy" for s, i in image_sets.items()}
+    files = {file_of[s]: images for s, images in image_sets.items()}
+    probs = {s: {} for s in image_sets}
     for name in names:
-        for seed in seeds:
-            arrays = cached_arrays(name, seed, jobs)
-            for set_name in image_sets:
-                probs[(name, seed, set_name)] = arrays[files[set_name]]
+        per_seed = [cached_arrays(name, seed, files, softmax_probs) for seed in seeds]
+        for set_name in image_sets:
+            probs[set_name][name] = np.stack([a[file_of[set_name]] for a in per_seed])
     return probs
 
 
@@ -92,6 +99,10 @@ def predict_labels(
     names: Iterable[str],
     image_sets: dict[str, torch.Tensor],
     seeds: Sequence[int] = TRAIN_CONFIG["seeds"],
-) -> dict[tuple[str, int, str], np.ndarray]:
-    # Like predict_probs, but the predicted classes.
-    return {k: p.argmax(1) for k, p in predict_probs(names, image_sets, seeds).items()}
+) -> dict[str, dict[str, np.ndarray]]:
+    # Like predict_probs, but the predicted classes: preds[set name][model name] is (seeds, N).
+    probs = predict_probs(names, image_sets, seeds)
+    return {
+        s: {n: p.argmax(-1) for n, p in by_model.items()}
+        for s, by_model in probs.items()
+    }

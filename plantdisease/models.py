@@ -4,7 +4,7 @@ from torch import Tensor, nn
 from torchvision import models
 
 from .config import DATA_CONFIG
-from .recipe import RunConfig
+from .experiments import RunConfig
 
 
 class SEBlock(nn.Module):
@@ -69,12 +69,8 @@ def build_model(cfg: RunConfig, pretrained: bool = True) -> nn.Module:
     raise ValueError(cfg.arch)
 
 
+# parameter names of the new classifier head of the pre-trained models
 HEAD_PREFIX = {"resnet18": ("fc.",), "vit_b_16": ("heads.",)}
-LAYER_OF = {  # last convolutional feature maps of every architecture (for Grad-CAM)
-    "cnn": lambda m: m.features,
-    "se_cnn": lambda m: m.features,
-    "resnet18": lambda m: m.layer4,
-}
 
 
 def is_head(cfg: RunConfig, name: str) -> bool:
@@ -83,22 +79,22 @@ def is_head(cfg: RunConfig, name: str) -> bool:
 
 
 def set_trainable(model: nn.Module, cfg: RunConfig, stage: str) -> None:
-    # Stage 'head': only the new classifier is trained. Stage 'finetune': cfg.finetune decides
-    # (fine-tuning strategies of Section 10):
-    #   'head'    the classifier only (backbone frozen throughout)
-    #   'partial' the last cfg.trainable_blocks ViT encoder blocks, the final LayerNorm and the classifier
-    #   'full'    every parameter, including patch embedding, position embedding and class token (default)
+    # Stage 'head': only the new classifier head is trained. Stage 'finetune': cfg.trainable_blocks
+    # decides (fine-tuning strategies of Section 10):
+    #   None  every parameter, including patch embedding, position embedding and class token
+    #   0     the classifier head only (backbone frozen throughout)
+    #   n     the last n ViT encoder blocks, the final LayerNorm and the classifier head
     if cfg.arch not in HEAD_PREFIX:
         # models trained from scratch: everything is trainable
         return
-    scope = "head" if stage == "head" else cfg.finetune
-    if scope == "full":
+    n_trainable = 0 if stage == "head" else cfg.trainable_blocks
+    if n_trainable is None:
         model.requires_grad_(True)
         return
     trainable = HEAD_PREFIX[cfg.arch]
-    if scope == "partial":
+    if n_trainable > 0:
         n_blocks = len(model.encoder.layers)  # 12 for ViT-B/16
-        last = range(n_blocks - cfg.trainable_blocks, n_blocks)
+        last = range(n_blocks - n_trainable, n_blocks)
         blocks = [f"encoder.layers.encoder_layer_{i}." for i in last]
         trainable = (*trainable, *blocks, "encoder.ln.")
     for name, p in model.named_parameters():

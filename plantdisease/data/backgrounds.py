@@ -1,43 +1,24 @@
 """Leaf masks and backgrounds: test variants (14), same-leaf background tests (16), countermeasure (18)."""
 
-from __future__ import annotations
-
 import random
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
 
 import numpy as np
 import torch
 import torch.nn.functional as F  # noqa: N812
-from scipy.ndimage import binary_closing, binary_fill_holes
 from torchvision.transforms import v2
 
-from .images import to_grayscale
+from .dataset import Data
+from .images import has_leaf, leaf_masks, to_grayscale
 from .loaders import CachedDataset
-
-if TYPE_CHECKING:  # dataset.py imports this module
-    from .dataset import Data
 
 TILE_SIZE = 32  # side of a leaf-free corner tile, in pixels
 
 
 # ----------------------------------------------------------------------------
-# Leaf masks and background tiles
+# Background tiles (the leaf masks are in images.py)
 # ----------------------------------------------------------------------------
-def leaf_masks(segmented: torch.Tensor, threshold: int = 10) -> torch.Tensor:
-    # Leaf = every pixel that is not black in the segmented photo; closing and hole filling bridge small gaps.
-    mask = (segmented.amax(dim=1) > threshold).numpy()
-    mask = [binary_fill_holes(binary_closing(m, iterations=3)) for m in mask]
-    return torch.from_numpy(np.stack(mask))
-
-
-def has_leaf(masks: torch.Tensor) -> np.ndarray:
-    # Which masks contain leaf pixels at all. A photo with an empty (or missing) mask is never
-    # changed: without a mask the leaf cannot be cut out.
-    return masks.flatten(1).any(1).numpy()
-
-
 def free_corner(
     image: torch.Tensor, mask: torch.Tensor, size: int = TILE_SIZE
 ) -> torch.Tensor | None:
@@ -208,21 +189,6 @@ def make_background_tests(tv: TestVariants, verbose: bool = True) -> BackgroundT
 # ----------------------------------------------------------------------------
 # Section 18: training with random backgrounds
 # ----------------------------------------------------------------------------
-def training_masks(data: Data) -> tuple[torch.Tensor, np.ndarray]:
-    # Leaf masks of all photos (aligned with data.images) and which of them can be used for the swap.
-    seg_all, exists = data.segmented
-    print(f"{(~exists).sum()} of {len(exists)} photos have no segmented version")
-    # (N, H, W) bool; photos without a segmented version get an empty mask
-    masks = leaf_masks(seg_all)
-    swap_ok = has_leaf(masks)
-    print(
-        f"Leaf masks cover {masks.float().mean():.0%} of the image on average | "
-        f"{(~swap_ok).sum()} of {len(swap_ok)} photos have an empty or missing mask "
-        f"and are never changed"
-    )
-    return masks, swap_ok
-
-
 class BackgroundSwapDataset(CachedDataset):
     # Like CachedDataset, but with probability p everything outside the leaf is replaced by a background:
     # a random one, or (class_matched, the control) a corner tile of a training photo of the same class.

@@ -1,14 +1,16 @@
-"""Metrics, seed statistics, compute, Grad-CAM and other evaluation tools (Sections 9-20).
+"""Metrics, seed statistics, compute cost and confidence (Sections 9-20).
 
 Uncertainty follows Zhouyang's protocol: every model is trained with the seeds of TRAIN_CONFIG["seeds"] on one
 fixed split; results are the mean ± sample standard deviation over these seeds. Two models trained
 with the same seed are compared seed by seed ("higher in k of n seeds"). The standard deviation
 covers the randomness of training, not the choice of test leaves.
+
+Predictions of one model are an array (seeds, N), see predictions.py.
 """
 
 import os
 import time
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Iterable
 from itertools import pairwise
 from typing import Any
 
@@ -16,16 +18,13 @@ import numpy as np
 import numpy.typing as npt
 import pandas as pd
 import torch
-import torch.nn.functional as F  # noqa: N812
 from sklearn.metrics import f1_score
 from torch import nn
 
-from .config import DATA_CONFIG, TRAIN_CONFIG, safe_name
-from .data.loaders import eval_tf
+from .config import DATA_CONFIG, TRAIN_CONFIG, run_path
 from .device import USE_AMP, device, synchronize
-from .experiments import config_of
-from .models import LAYER_OF, count_params
-from .predictions import cached_arrays, fingerprint, load_model
+from .models import count_params
+from .predictions import load_model
 from .train import load_history
 
 
@@ -53,32 +52,26 @@ def mean_sd(values: npt.ArrayLike, digits: int = 4, scale: float = 1) -> str:
     return f"{values.mean():.{digits}f} ± {sd(values):.{digits}f}"
 
 
-def mean_and_sd(values: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-    # Per-column mean and sample sd over the rows, ignoring NaN (sd 0 where only one value is left).
-    # Used for learning curves: rows = seeds, columns = epochs, NaN after a run stopped early.
-    n = np.sum(~np.isnan(values), 0)
-    mean = np.nanmean(values, 0)
-    spread = np.sqrt(np.nansum((values - mean) ** 2, 0) / np.maximum(n - 1, 1))
-    return mean, spread
-
-
 def seed_scores(
-    names: Iterable[str],
-    preds: dict[tuple[str, int, str], np.ndarray],
-    set_name: str,
-    y: np.ndarray,
-    labels: npt.ArrayLike | None = None,
+    preds: dict[str, np.ndarray], y: np.ndarray, labels: npt.ArrayLike | None = None
 ) -> dict[str, np.ndarray]:
-    # Macro-F1 of every seed: {model: array over the seeds}. preds: {(model, seed, set name): predicted classes}.
+    # Macro-F1 of every seed: preds = {model: predicted classes (seeds, N)} -> {model: (seeds,)}.
     return {
-        name: np.array(
-            [
-                macro_f1(y, preds[(name, s, set_name)], labels)
-                for s in TRAIN_CONFIG["seeds"]
-            ]
-        )
-        for name in names
+        name: np.array([macro_f1(y, p, labels) for p in model_preds])
+        for name, model_preds in preds.items()
     }
+
+
+def per_class_f1(preds: np.ndarray, y: np.ndarray) -> np.ndarray:
+    # F1 of every class, mean over the seeds. preds: (seeds, N).
+    return np.mean([f1_score(y, p, average=None) for p in preds], axis=0)
+
+
+def per_class_recall(
+    preds: np.ndarray, y: np.ndarray, classes: Iterable[int]
+) -> list[float]:
+    # Recall of the given classes, mean over the seeds. preds: (seeds, N).
+    return [(preds[:, y == c] == c).mean(1).mean() for c in classes]
 
 
 def compare_seeds(
@@ -93,16 +86,54 @@ def compare_seeds(
     }
 
 
-def stable_errors(
-    preds_per_seed: Sequence[np.ndarray], y: np.ndarray
-) -> dict[str, str | int]:
+def comparison_table(
+    pairs: Iterable[tuple[str, str]], scores: dict[str, np.ndarray]
+) -> pd.DataFrame:
+    # Same-seed comparisons: pairs = [(new model, baseline)], scores = {model: seed scores}.
+    return pd.DataFrame(
+        [
+            {"model": new, "baseline": base, **compare_seeds(scores[new], scores[base])}
+            for new, base in pairs
+        ]
+    )
+
+
+def stable_errors(preds: np.ndarray, y: np.ndarray) -> dict[str, str | int]:
     # Errors of every seed, test photos that every seed gets wrong, and photos wrong at least once.
-    wrong = np.array([p != y for p in preds_per_seed])
+    # preds: (seeds, N).
+    wrong = np.asarray(preds) != y
     return {
         "errors per seed": ", ".join(str(n) for n in wrong.sum(1)),
         "wrong in every seed": int(wrong.all(0).sum()),
         "wrong at least once": int(wrong.any(0).sum()),
     }
+
+
+def field_table(
+    test_preds: dict[str, np.ndarray],
+    field_preds: dict[str, np.ndarray],
+    y_test: np.ndarray,
+    y_field: np.ndarray,
+) -> tuple[pd.DataFrame, dict[str, np.ndarray], dict[str, np.ndarray]]:
+    # Section 19: macro-F1 over the classes that occur in the field photos, on the clean test
+    # photos of these classes and on the field photos (mean ± sd over the seeds).
+    # Returns (table, seed scores on the clean test, seed scores on the field photos).
+    labels = np.unique(y_field)
+    same = np.isin(y_test, labels)  # clean test photos of the same classes
+    clean = seed_scores(
+        {name: p[:, same] for name, p in test_preds.items()}, y_test[same], labels
+    )
+    field = seed_scores(field_preds, y_field, labels)
+    models = list(field_preds)
+    table = pd.DataFrame(
+        {
+            "clean test": [mean_sd(clean[n], 3) for n in models],
+            "field photos": [mean_sd(field[n], 3) for n in models],
+            "drop": [clean[n].mean() - field[n].mean() for n in models],
+        },
+        index=pd.Index(models, name="model"),
+    )
+    return table, clean, field
 
 
 # ----------------------------------------------------------------------------
@@ -139,192 +170,16 @@ def training_cost(name: str) -> dict[str, Any]:
     }
 
 
-def inference_cost(name: str, checkpoint: str) -> dict[str, float]:
+def inference_cost(name: str) -> dict[str, float]:
     # Parameters, checkpoint size and inference latency of the first seed (ours).
-    model = load_model(name, TRAIN_CONFIG["seeds"][0])
+    seed = TRAIN_CONFIG["seeds"][0]
+    model = load_model(name, seed)
+    checkpoint = os.path.join(run_path(name, seed), "best.pt")
     return {
         "params (M)": count_params(model) / 1e6,
         "size (MB)": os.path.getsize(checkpoint) / 1e6,
         "latency bs=1 (ms)": measure_latency(model, 1),
         "ms/image bs=64": measure_latency(model, 64),
-    }
-
-
-# ----------------------------------------------------------------------------
-# Grad-CAM and the share of the attention on the leaf (Sections 13 and 17)
-# ----------------------------------------------------------------------------
-def grad_cam(model: nn.Module, layer: nn.Module, x: torch.Tensor) -> torch.Tensor:
-    # Return Grad-CAM heat maps (B, H, W) in [0, 1] for the predicted class.
-    store = {}
-
-    def hook(
-        module: nn.Module, inputs: tuple[torch.Tensor, ...], output: torch.Tensor
-    ) -> torch.Tensor:
-        # only the layers after `layer` are recorded for the backward pass
-        store["act"] = output.detach().requires_grad_()
-        return store["act"]
-
-    trainable = [p.requires_grad for p in model.parameters()]
-    model.requires_grad_(False)
-    handle = layer.register_forward_hook(hook)
-    try:
-        logits = model(x)
-        score = logits.gather(1, logits.argmax(1, keepdim=True)).sum()
-        grad = torch.autograd.grad(score, store["act"])[0]
-    finally:
-        handle.remove()
-        for p, t in zip(model.parameters(), trainable, strict=True):
-            p.requires_grad_(t)
-    # importance of each feature map, then the weighted sum of the feature maps
-    weights = grad.mean(dim=(2, 3), keepdim=True)
-    cam = F.relu((weights * store["act"].detach()).sum(1, keepdim=True))
-    cam = F.interpolate(cam, size=x.shape[-2:], mode="bilinear", align_corners=False)
-    cam = cam[:, 0]
-    return (cam / (cam.amax(dim=(1, 2), keepdim=True) + 1e-8)).detach().cpu()
-
-
-def grad_cam_images(name: str, seed: int, images: torch.Tensor) -> torch.Tensor:
-    # Grad-CAM maps of a model for a few uint8 images.
-    model = load_model(name, seed)
-    x = eval_tf(images).to(device)
-    with torch.autocast(device.type, enabled=False):
-        return grad_cam(model, LAYER_OF[config_of(name).arch](model), x)
-
-
-def leaf_attention(
-    model: nn.Module,
-    layer: nn.Module,
-    images: torch.Tensor,
-    masks: torch.Tensor,
-    batch_size: int = 32,
-) -> np.ndarray:
-    # Share of the Grad-CAM weight that lies on the leaf, for every image.
-    shares = []
-    for start in range(0, len(images), batch_size):
-        x = eval_tf(images[start : start + batch_size]).to(device)
-        with torch.autocast(device.type, enabled=False):
-            cams = grad_cam(model, layer, x)
-        on_leaf = (cams * masks[start : start + batch_size].float()).sum(dim=(1, 2))
-        total = cams.sum(dim=(1, 2))
-        shares.append(
-            torch.where(
-                total > 1e-6,
-                on_leaf / total.clamp_min(1e-6),
-                torch.full_like(total, float("nan")),
-            )
-        )
-    return torch.cat(shares).numpy()
-
-
-def leaf_share_table(
-    model_names: Iterable[str],
-    tests: dict[str, torch.Tensor],
-    masks: torch.Tensor,
-    variants: Sequence[str] = (
-        "original",
-        "background removed",
-        "other-class background",
-    ),
-) -> pd.DataFrame:
-    # Mean leaf share over the test photos, per model and test condition (mean ± sd over the seeds).
-    # Per-photo shares are cached in <run>/preds/ like the predictions, keyed by images and masks.
-    def share_job(images: torch.Tensor, arch: str) -> Callable[[nn.Module], np.ndarray]:
-        def compute(model: nn.Module) -> np.ndarray:
-            return leaf_attention(model, LAYER_OF[arch](model), images, masks)
-
-        return compute
-
-    rows = []
-    mask_id = fingerprint(masks)
-    files = {
-        v: f"leafshare_{safe_name(v)}_{fingerprint(tests[v])}_{mask_id}.npy"
-        for v in variants
-    }
-    for name in model_names:
-        arch = config_of(name).arch
-        jobs = {files[v]: share_job(tests[v], arch) for v in variants}
-        arrays = [cached_arrays(name, seed, jobs) for seed in TRAIN_CONFIG["seeds"]]
-        for variant in variants:
-            per_seed = [np.nanmean(a[files[variant]]) for a in arrays]
-            rows.append(
-                {
-                    "model": name,
-                    "condition": variant,
-                    "leaf share": np.mean(per_seed),
-                    "sd": sd(per_seed),
-                    "leaf area share": masks.float().mean().item(),
-                }
-            )
-    return pd.DataFrame(rows).set_index(["model", "condition"])
-
-
-# ----------------------------------------------------------------------------
-# Section 19: field photos
-# ----------------------------------------------------------------------------
-def field_table(
-    models: Sequence[str],
-    preds: dict[tuple[str, int, str], np.ndarray],
-    y_field: np.ndarray,
-    y_test: np.ndarray,
-) -> tuple[pd.DataFrame, dict[str, np.ndarray], dict[str, np.ndarray]]:
-    # Macro-F1 over the classes that occur in the field photos: on the field photos ('field') and
-    # on the clean test photos of the same classes ('test'), mean ± sd over the seeds.
-    # preds: {(model, seed, 'test' or 'field'): predicted classes}.
-    # Returns (table, seed scores on the clean test, seed scores on the field photos).
-    labels = np.unique(y_field)
-    same = np.isin(y_test, labels)  # clean test photos of the same classes
-    field = seed_scores(models, preds, "field", y_field, labels)
-    clean = {
-        name: np.array(
-            [
-                macro_f1(y_test[same], preds[(name, s, "test")][same], labels)
-                for s in TRAIN_CONFIG["seeds"]
-            ]
-        )
-        for name in models
-    }
-    table = pd.DataFrame(
-        {
-            "clean test": [mean_sd(clean[n], 3) for n in models],
-            "field photos": [mean_sd(field[n], 3) for n in models],
-            "drop": [clean[n].mean() - field[n].mean() for n in models],
-        },
-        index=pd.Index(models, name="model"),
-    )
-    return table, clean, field
-
-
-def comparison_table(
-    pairs: Iterable[tuple[str, str]], scores: dict[str, np.ndarray]
-) -> pd.DataFrame:
-    # Same-seed comparisons: pairs = [(new model, baseline)], scores = {model: seed scores}.
-    return pd.DataFrame(
-        [
-            {"model": new, "baseline": base, **compare_seeds(scores[new], scores[base])}
-            for new, base in pairs
-        ]
-    )
-
-
-def per_class_recall(
-    models: Iterable[str],
-    preds: dict[tuple[str, int, str], np.ndarray],
-    set_name: str,
-    y: np.ndarray,
-    classes: Iterable[int],
-) -> dict[str, list[float]]:
-    # Recall of every class, mean over the seeds -> {model: [recall per class]}.
-    return {
-        name: [
-            np.mean(
-                [
-                    (preds[(name, s, set_name)][y == c] == c).mean()
-                    for s in TRAIN_CONFIG["seeds"]
-                ]
-            )
-            for c in classes
-        ]
-        for name in models
     }
 
 

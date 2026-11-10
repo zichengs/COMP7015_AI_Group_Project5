@@ -3,7 +3,7 @@
 The settings are split into four dictionaries: ``PATHS_CONFIG`` (where data and results live),
 ``DATA_CONFIG`` (the PlantVillage protocol), ``PLANTDOC_CONFIG`` (the PlantDoc field photos) and
 ``TRAIN_CONFIG`` (training seeds, background-swap probability). The model recipes, with their epochs
-and early stopping, are defined in notebooks 02 and 03, the device is in ``device.py``. Paths, epochs and seeds
+and early stopping, are defined in ``experiments.py``, the device is in ``device.py``. Paths, epochs and seeds
 can be overridden with environment variables, e.g. ``EPOCHS_CNN=1 SEEDS=62`` for a quick test.
 """
 
@@ -75,20 +75,16 @@ for d in [PATHS_CONFIG["cache_dir"], PATHS_CONFIG["out_dir"], PATHS_CONFIG["runs
     os.makedirs(d, exist_ok=True)
 
 
-def config_dict() -> dict[str, dict[str, Any]]:
-    # All settings, one section per group.
-    return {
+def save_config() -> None:
+    # Save all settings to OUT_DIR/config.json, one section per group (called in notebook 01).
+    settings = {
         "paths": PATHS_CONFIG,
         "data": DATA_CONFIG,
         "plantdoc": PLANTDOC_CONFIG,
         "train": TRAIN_CONFIG,
     }
-
-
-def save_config() -> None:
-    # Save all settings to OUT_DIR/config.json (called in notebook 01).
     with open(out_path("config.json"), "w") as f:
-        json.dump(config_dict(), f, indent=2)
+        json.dump(settings, f, indent=2)
 
 
 def out_path(name: str) -> str:

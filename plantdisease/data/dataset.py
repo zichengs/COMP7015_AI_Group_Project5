@@ -1,4 +1,4 @@
-"""The Data object: everything of the data protocol in one call, `prepare()` (used by notebooks 02-06)."""
+"""The Data object: everything of the data protocol in one call, `prepare()` (used by every notebook)."""
 
 from dataclasses import dataclass
 from functools import cached_property
@@ -8,16 +8,8 @@ import pandas as pd
 import torch
 
 from ..config import DATA_CONFIG
-from .backgrounds import training_masks
-from .images import build_cache, load_segmented, to_grayscale
+from .images import build_cache, has_leaf, leaf_masks, load_segmented, to_grayscale
 from .records import data_fingerprint, load_records, make_split
-
-
-def class_weights(df: pd.DataFrame, train_idx: np.ndarray) -> torch.Tensor:
-    # Class-weighted loss: w_c = N / (K * n_c) over the training photos.
-    k = len(DATA_CONFIG["classes"])
-    train_counts = np.bincount(df.class_index[train_idx], minlength=k)
-    return torch.tensor(len(train_idx) / (k * train_counts), dtype=torch.float32)
 
 
 @dataclass
@@ -29,11 +21,17 @@ class Data:
     train_idx: np.ndarray
     val_idx: np.ndarray
     test_idx: np.ndarray
+    # fingerprint of the training photos and the split seed: a saved run is only reused for the same data
     data_id: str
 
     @property
     def class_weights(self) -> torch.Tensor:
-        return class_weights(self.df, self.train_idx)
+        # Class-weighted loss: w_c = N / (K * n_c) over the training photos.
+        k = len(DATA_CONFIG["classes"])
+        train_counts = np.bincount(self.labels[self.train_idx].numpy(), minlength=k)
+        return torch.tensor(
+            len(self.train_idx) / (k * train_counts), dtype=torch.float32
+        )
 
     @property
     def y_test(self) -> np.ndarray:
@@ -42,29 +40,44 @@ class Data:
     @cached_property
     def segmented(self) -> tuple[torch.Tensor, np.ndarray]:
         # Background-removed version of every photo -> (images, exists), aligned with self.images.
-        return load_segmented(self.df["path"], "segmented")
-
-    @cached_property
-    def swap_masks(self) -> tuple[torch.Tensor, np.ndarray]:
-        # Leaf masks of all photos for the background swap of Section 18 -> (masks, usable).
-        return training_masks(self)
+        return load_segmented(self.df["path"])
 
     @cached_property
     def grayscale(self) -> torch.Tensor:
         return to_grayscale(self.images)
 
+    @cached_property
+    def swap_masks(self) -> tuple[torch.Tensor, np.ndarray]:
+        # Leaf masks of all photos (aligned with self.images) and which of them can be used for the
+        # background swap of Section 18 -> (masks, usable).
+        seg_all, exists = self.segmented
+        print(f"{(~exists).sum()} of {len(exists)} photos have no segmented version")
+        # (N, H, W) bool; photos without a segmented version get an empty mask
+        masks = leaf_masks(seg_all)
+        swap_ok = has_leaf(masks)
+        print(
+            f"Leaf masks cover {masks.float().mean():.0%} of the image on average | "
+            f"{(~swap_ok).sum()} of {len(swap_ok)} photos have an empty or missing mask "
+            f"and are never changed"
+        )
+        return masks, swap_ok
+
     def input_images(self, variant: str) -> torch.Tensor:
         # The photos in one input version: 'color', 'grayscale' or 'segmented' (background removed).
-        return {
-            "color": lambda: self.images,
-            "grayscale": lambda: self.grayscale,
-            "segmented": lambda: self.segmented[0],
-        }[variant]()
+        if variant == "color":
+            return self.images
+        if variant == "grayscale":
+            return self.grayscale
+        if variant == "segmented":
+            return self.segmented[0]
+        raise ValueError(variant)
 
 
 def prepare() -> Data:
-    # Rebuild the deterministic data protocol of notebook 01 from the image cache.
-    _, _, df = load_records()
+    # The deterministic data protocol (Sections 3-5): the photos with an official leaf id, their
+    # cached images and the leaf-group split.
+    all_df = load_records()
+    df = all_df[all_df["source"] == "leaf map"].reset_index(drop=True)
     images = build_cache(df["path"], "color")
     train_idx, val_idx, test_idx = make_split(df)
     return Data(

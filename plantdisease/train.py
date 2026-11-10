@@ -1,14 +1,15 @@
-"""Training engine (Section 8): train one configuration with one seed, or load it if it was trained before."""
+"""Training engine (Section 8): `run` trains a run name with every seed, or loads the runs that were trained before."""
 
 import json
 import os
 import shutil
 import time
 from collections.abc import Sequence
+from typing import Self
 
 import torch
 import torch.nn.functional as F  # noqa: N812
-from pydantic import ValidationError
+from pydantic import BaseModel, ConfigDict, ValidationError, model_validator
 from sklearn.metrics import accuracy_score, f1_score
 from torch import nn
 from torch.optim import AdamW
@@ -26,10 +27,9 @@ from .data.loaders import (
     train_tf,
 )
 from .device import USE_AMP, device, set_seed, synchronize
-from .experiments import config_of
+from .experiments import RunConfig, config_of
 from .models import build_model, count_params, is_head, set_trainable
 from .predictions import predict
-from .recipe import RunConfig, RunHistory
 
 # ----------------------------------------------------------------------------
 # Setting up a run
@@ -104,7 +104,7 @@ def train_epoch(
     scaler: torch.amp.GradScaler,
 ) -> tuple[float, float, float]:
     # One training epoch. Returns loss, accuracy and the time (timed without validation, after the
-    # device has finished). `scaler`: loss scaling for mixed precision (see run()).
+    # device has finished). `scaler`: loss scaling for mixed precision (see _run_seed()).
     model.train()
     # the parameters whose gradients are clipped: the trainable ones of the current stage
     params = [p for p in model.parameters() if p.requires_grad]
@@ -118,7 +118,7 @@ def train_epoch(
             outputs = model(x)
             loss = criterion(outputs, y)
         optimizer.zero_grad(set_to_none=True)
-        # mixed-precision update (see GradScaler in run()):
+        # mixed-precision update (see GradScaler in _run_seed()):
         scaler.scale(loss).backward()  # backward pass on the scaled loss
         scaler.unscale_(optimizer)  # gradients back to their true size, before clipping
         nn.utils.clip_grad_norm_(params, max_norm=1.0)
@@ -151,6 +151,38 @@ def validate(model: nn.Module, loader: DataLoader) -> tuple[float, float, float,
 # ----------------------------------------------------------------------------
 # Saved results: <run folder>/history.json (config, data fingerprint and history)
 # ----------------------------------------------------------------------------
+
+
+class RunHistory(BaseModel):
+    # History of one training run: one entry per trained epoch in every list.
+    # Unknown fields of older files are ignored.
+    model_config = ConfigDict(extra="ignore")
+
+    train_loss: list[float] = []
+    train_acc: list[float] = []
+    val_loss: list[float] = []
+    val_acc: list[float] = []
+    val_f1: list[float] = []  # macro-F1; the checkpoint of the best epoch is kept
+    train_time: list[float] = []  # seconds, training only (device synchronised)
+    val_time: list[float] = []  # seconds
+    trainable_params: list[int] = []
+    stopped_early: bool = False  # early stopping ended the run before `epochs`
+
+    @classmethod
+    def per_epoch_fields(cls) -> list[str]:
+        return [name for name in cls.model_fields if name != "stopped_early"]
+
+    @model_validator(mode="after")
+    def check_lengths(self) -> Self:
+        lengths = {len(getattr(self, name)) for name in self.per_epoch_fields()}
+        if len(lengths) > 1:
+            raise ValueError("the per-epoch lists have different lengths")
+        return self
+
+    def add_epoch(self, **values: float) -> None:
+        # Record one finished epoch: one value for every per-epoch list.
+        for name in self.per_epoch_fields():
+            getattr(self, name).append(values[name])
 
 
 def load_finished(run_dir: str, cfg: RunConfig, data: Data) -> RunHistory | None:
@@ -206,8 +238,9 @@ def should_stop(cfg: RunConfig, epoch: int, best_epoch: int) -> bool:
     return epochs_without_gain >= cfg.patience
 
 
-def run(name: str, cfg: RunConfig, seed: int, data: Data) -> RunHistory:
-    # Train one configuration with one seed (or load it if it was trained before). Returns the history.
+def _run_seed(name: str, seed: int, data: Data) -> RunHistory:
+    # Train one run name with one seed (or load it if it was trained before). Returns the history.
+    cfg = config_of(name)
     run_dir = run_path(name, seed)
     finished = load_finished(run_dir, cfg, data)
     if finished is not None:
@@ -238,14 +271,11 @@ def run(name: str, cfg: RunConfig, seed: int, data: Data) -> RunHistory:
                 model, cfg, epoch, len(train_loader)
             )
 
-        # learning rate before the epoch (the scheduler changes it during the epoch)
-        lr = optimizer.param_groups[0]["lr"]
         train_loss, train_acc, train_time = train_epoch(
             model, train_loader, criterion, optimizer, scheduler, scaler
         )
         val_loss, val_acc, val_f1, val_time = validate(model, val_loader)
         history.add_epoch(
-            lr=lr,
             trainable_params=count_params(model, trainable_only=True),
             train_loss=train_loss,
             train_acc=train_acc,
@@ -279,8 +309,8 @@ def run(name: str, cfg: RunConfig, seed: int, data: Data) -> RunHistory:
     return history
 
 
-def run_seeds(
+def run(
     name: str, data: Data, seeds: Sequence[int] = TRAIN_CONFIG["seeds"]
 ) -> list[RunHistory]:
-    # Train (or load) a run name with every training seed.
-    return [run(name, config_of(name), seed, data) for seed in seeds]
+    # Train (or load) a run name with every seed -> one history per seed.
+    return [_run_seed(name, seed, data) for seed in seeds]

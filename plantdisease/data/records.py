@@ -9,15 +9,16 @@ import pandas as pd
 import torch
 from torch.utils.data import random_split
 
-from ..config import DATA_CONFIG, PATHS_CONFIG, out_path
+from ..config import DATA_CONFIG, PATHS_CONFIG
 from .leafmap import IMAGE_SUFFIXES, get_image_key, get_leaf_id
 
 
 # ----------------------------------------------------------------------------
 # Section 3: leaf grouping
 # ----------------------------------------------------------------------------
-def load_records() -> tuple[dict[str, list[str]], pd.DataFrame, pd.DataFrame]:
-    # All photos of the four classes -> (leaf_map, all_df, df: photos with an official leaf id).
+def load_records() -> pd.DataFrame:
+    # All photos of the four classes, one row per photo. `source` says where the leaf id comes
+    # from; only the photos with an official leaf id (source 'leaf map') are used (see prepare()).
     data_root = PATHS_CONFIG["data_root"]
     with open(os.path.join(data_root, "leaf-map.json")) as f:
         leaf_map = json.load(f)  # image identifier -> ['<class>:::<leaf group>', ...]
@@ -44,15 +45,7 @@ def load_records() -> tuple[dict[str, list[str]], pd.DataFrame, pd.DataFrame]:
                         "source": source,
                     }
                 )
-    all_df = pd.DataFrame(all_records)
-    official = all_df["source"] == "leaf map"
-
-    # photos without an official leaf id (file-name leaf number only, or no leaf information)
-    all_df[~official].to_csv(out_path("excluded_images.csv"), index=False)
-
-    # dataset: every photo of the four classes with an official leaf id
-    df = all_df[official].reset_index(drop=True)
-    return leaf_map, all_df, df
+    return pd.DataFrame(all_records)
 
 
 # ----------------------------------------------------------------------------

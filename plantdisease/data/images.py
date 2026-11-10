@@ -1,4 +1,4 @@
-"""Image cache and image versions: decode and resize once, segmented and grayscale versions (Section 4)."""
+"""Image cache and image versions: decode and resize once, segmented and grayscale versions, leaf masks (Section 4)."""
 
 import os
 from collections.abc import Iterable
@@ -7,6 +7,7 @@ from functools import cache
 import numpy as np
 import torch
 from PIL import Image
+from scipy.ndimage import binary_closing, binary_fill_holes
 from torchvision.transforms import v2
 
 from ..config import DATA_CONFIG, PATHS_CONFIG
@@ -68,11 +69,13 @@ def segmented_path(path: str) -> str:
     return os.path.join(folder, file)
 
 
-def load_segmented(paths: Iterable[str], name: str) -> tuple[torch.Tensor, np.ndarray]:
+def load_segmented(paths: Iterable[str]) -> tuple[torch.Tensor, np.ndarray]:
     # Segmented versions of `paths` (aligned; black where no segmented photo exists) and which exist.
     seg_paths = [segmented_path(p) for p in paths]
     exists = np.array([os.path.exists(p) for p in seg_paths])
-    found = build_cache([p for p, e in zip(seg_paths, exists, strict=True) if e], name)
+    found = build_cache(
+        [p for p, e in zip(seg_paths, exists, strict=True) if e], "segmented"
+    )
     images = torch.zeros(len(seg_paths), *found.shape[1:], dtype=torch.uint8)
     images[torch.from_numpy(exists)] = found
     return images, exists
@@ -81,3 +84,16 @@ def load_segmented(paths: Iterable[str], name: str) -> tuple[torch.Tensor, np.nd
 def to_grayscale(images: torch.Tensor) -> torch.Tensor:
     # Grayscale version with three identical channels, so that the same (pre-trained) networks apply.
     return v2.functional.rgb_to_grayscale(images, num_output_channels=3)
+
+
+def leaf_masks(segmented: torch.Tensor, threshold: int = 10) -> torch.Tensor:
+    # Leaf = every pixel that is not black in the segmented photo; closing and hole filling bridge small gaps.
+    mask = (segmented.amax(dim=1) > threshold).numpy()
+    mask = [binary_fill_holes(binary_closing(m, iterations=3)) for m in mask]
+    return torch.from_numpy(np.stack(mask))
+
+
+def has_leaf(masks: torch.Tensor) -> np.ndarray:
+    # Which masks contain leaf pixels at all. A photo with an empty (or missing) mask is never
+    # changed: without a mask the leaf cannot be cut out.
+    return masks.flatten(1).any(1).numpy()
