@@ -17,6 +17,6 @@ Shared code of the notebooks 01-06:
 - ``train``         training engine: ``run(name, data)``, early stopping, checkpoints, saved history
 - ``predictions``   rebuild a model from a finished run, predictions with an on-disk cache
 - ``evaluate``      metrics, seed statistics, compute cost, confidence
-- ``gradcam``       Grad-CAM and the attention on the leaf
+- ``gradcam``       Grad-CAM / Score-CAM (pytorch-grad-cam) and the attention on the leaf
 - ``plots``         plotting helpers
 """

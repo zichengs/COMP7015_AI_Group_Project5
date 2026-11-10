@@ -25,7 +25,7 @@ Run the notebooks in order, from the repository root:
 | `01_data.ipynb` | 1–6 | configuration, download, leaf grouping, image cache, leaf-group split and leakage audit, augmentation |
 | `02_cnn_resnet.ipynb` | 7–9 | custom CNN and ResNet18, training engine, tuning and ablations, selection with all seeds |
 | `03_vit.ipynb` | 10 | ViT-B/16 fine-tuning strategies (head only, last two blocks, full) and augmentation ablation, selection |
-| `04_test_evaluation.ipynb` | 11–13 | test results of the final models over 3 seeds, compute trade-offs (inference and training cost), error analysis, Grad-CAM |
+| `04_test_evaluation.ipynb` | 11–13 | test results of the final models over 3 seeds, compute trade-offs (inference and training cost), error analysis, Grad-CAM and Score-CAM (all three models) |
 | `05_robustness.ipynb` | 14–20 | background-only baseline (what four image corners reveal); robustness to background removal, grayscale, lighting, blur and noise; ViT retrained on grayscale and background-removed photos; the same leaf on other backgrounds; leaf attention; countermeasure (random backgrounds); PlantDoc field photos; confidence and abstention |
 | `06_discussion.ipynb` | 21–22 | all key tables in one place, discussion |
 
@@ -92,7 +92,7 @@ The notebooks show the steps and the results. The shared code is in the `plantdi
 | `train.py` | training engine: `run(name, data)` trains a run with every seed (AdamW, schedules, two-stage fine-tuning with separate head/backbone learning rates, early stopping, checkpoints, saved history and training cost) |
 | `predictions.py` | rebuild a model from a finished run (best checkpoint), predictions with an on-disk cache: `probs[set][model]` is an array (seeds, N, K) |
 | `evaluate.py` | macro-F1, mean ± sd over seeds, same-seed comparisons, stable errors, latency and training cost, calibration |
-| `gradcam.py` | Grad-CAM and the share of the attention on the leaf |
+| `gradcam.py` | Grad-CAM and Score-CAM via [pytorch-grad-cam](https://github.com/jacobgil/pytorch-grad-cam) (CNNs and ViT), and the share of the attention on the leaf |
 | `plots.py` | plotting helpers |
 
 `docs/archives/plant_disease_classification2.ipynb` and `docs/archives/plant_disease_classification3_julia.ipynb` are earlier single-notebook versions; they are kept for reference.
@@ -100,9 +100,10 @@ The notebooks show the steps and the results. The shared code is in the `plantdi
 ## Acknowledgements
 
 - [PyTorch](https://pytorch.org/) and [torchvision](https://pytorch.org/vision/) (models, pre-trained ImageNet weights of ResNet18 and ViT-B/16, transforms)
+- [pytorch-grad-cam](https://github.com/jacobgil/pytorch-grad-cam) (Grad-CAM and Score-CAM)
 - [scikit-learn](https://scikit-learn.org/), [SciPy](https://scipy.org/), [pandas](https://pandas.pydata.org/), [NumPy](https://numpy.org/), [Matplotlib](https://matplotlib.org/)
 - PlantVillage dataset: Hughes & Salathé (2015); Mohanty, Hughes & Salathé (2016), <https://github.com/spMohanty/PlantVillage-Dataset>
 - PlantDoc dataset: Singh et al. (2020), <https://github.com/pratikkayal/PlantDoc-Dataset>
 - Background bias in PlantVillage: Noyan (2022)
-- Squeeze-and-Excitation: Hu et al. (2018); Grad-CAM: Selvaraju et al. (2017); ViT: Dosovitskiy et al. (2021)
+- Squeeze-and-Excitation: Hu et al. (2018); Grad-CAM: Selvaraju et al. (2017); Score-CAM: Wang et al. (2020); ViT: Dosovitskiy et al. (2021)
 - ViT fine-tuning protocol and input ablation: Zhouyang (team member)

@@ -5,6 +5,7 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "grad-cam>=1.5.7",
     "matplotlib>=3.11.2",
     "pandas>=3.1.1",
     "pydantic>=2.14.3",

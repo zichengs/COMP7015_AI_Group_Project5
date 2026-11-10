@@ -1,12 +1,15 @@
-"""Grad-CAM and the share of the attention that lies on the leaf (Sections 13 and 17)."""
+"""Class activation maps (Grad-CAM, Score-CAM) and the share of the attention that lies on the leaf
+(Sections 13 and 17). The maps are computed with the pytorch-grad-cam library (`grad-cam` on PyPI)."""
 
+import math
 from collections.abc import Iterable, Sequence
 from functools import partial
+from types import SimpleNamespace
 
 import numpy as np
 import pandas as pd
 import torch
-import torch.nn.functional as F  # noqa: N812
+from pytorch_grad_cam import GradCAM, ScoreCAM, score_cam
 from torch import nn
 
 from .config import TRAIN_CONFIG, safe_name
@@ -16,50 +19,59 @@ from .evaluate import sd
 from .experiments import config_of
 from .predictions import cached_arrays, fingerprint, load_model
 
-# last convolutional feature maps of every architecture (Grad-CAM needs them, so not the ViT)
-LAYER_OF = {
-    "cnn": lambda m: m.features,
+# the layer whose feature maps are weighted, for every architecture
+TARGET_LAYER = {
+    "cnn": lambda m: m.features,  # last conv block (256 x 14 x 14)
     "se_cnn": lambda m: m.features,
-    "resnet18": lambda m: m.layer4,
+    "resnet18": lambda m: m.layer4,  # last residual stage (512 x 7 x 7)
+    # ViT: LayerNorm of the last encoder block; its 196 patch tokens form a 14 x 14 grid
+    "vit_b_16": lambda m: m.encoder.layers[-1].ln_1,
 }
 
-
-def grad_cam(model: nn.Module, layer: nn.Module, x: torch.Tensor) -> torch.Tensor:
-    # Return Grad-CAM heat maps (B, H, W) in [0, 1] for the predicted class.
-    store = {}
-
-    def hook(
-        module: nn.Module, inputs: tuple[torch.Tensor, ...], output: torch.Tensor
-    ) -> torch.Tensor:
-        # only the layers after `layer` are recorded for the backward pass
-        store["act"] = output.detach().requires_grad_()
-        return store["act"]
-
-    trainable = [p.requires_grad for p in model.parameters()]
-    model.requires_grad_(False)
-    handle = layer.register_forward_hook(hook)
-    try:
-        logits = model(x)
-        score = logits.gather(1, logits.argmax(1, keepdim=True)).sum()
-        grad = torch.autograd.grad(score, store["act"])[0]
-    finally:
-        handle.remove()
-        for p, t in zip(model.parameters(), trainable, strict=True):
-            p.requires_grad_(t)
-    # importance of each feature map, then the weighted sum of the feature maps
-    weights = grad.mean(dim=(2, 3), keepdim=True)
-    cam = F.relu((weights * store["act"].detach()).sum(1, keepdim=True))
-    cam = F.interpolate(cam, size=x.shape[-2:], mode="bilinear", align_corners=False)
-    cam = cam[:, 0]
-    return (cam / (cam.amax(dim=(1, 2), keepdim=True) + 1e-8)).detach().cpu()
+METHODS = {"gradcam": GradCAM, "scorecam": ScoreCAM}
+SCORECAM_BATCH = 32  # masked images per forward pass of Score-CAM
+# Score-CAM shows a tqdm progress bar for every image, which floods the notebook output: turn it off
+score_cam.tqdm = SimpleNamespace(tqdm=lambda iterable, **_: iterable)
 
 
-def grad_cam_images(name: str, seed: int, images: torch.Tensor) -> torch.Tensor:
-    # Grad-CAM maps of a model for a few uint8 images.
+def vit_reshape(tokens: torch.Tensor) -> torch.Tensor:
+    # ViT tokens (B, 1 + 196, D) -> feature maps (B, D, 14, 14): drop the class token and put the
+    # patch tokens back on their image grid, so that the CAM methods can treat them like conv maps.
+    patches = tokens[:, 1:, :]
+    side = math.isqrt(patches.shape[1])
+    return patches.reshape(patches.shape[0], side, side, -1).permute(0, 3, 1, 2)
+
+
+RESHAPE = {"vit_b_16": vit_reshape}
+
+
+def cam_maps(
+    model: nn.Module, arch: str, x: torch.Tensor, method: str = "gradcam"
+) -> torch.Tensor:
+    # Heat maps (B, H, W) in [0, 1] for the predicted class of every (normalised) image in x.
+    # Score-CAM masks the image with every feature map at once, so it runs one image at a time.
+    chunks = [x] if method == "gradcam" else list(x.split(1))
+    maps = []
+    with (
+        torch.autocast(device.type, enabled=False),
+        METHODS[method](
+            model=model,
+            target_layers=[TARGET_LAYER[arch](model)],
+            reshape_transform=RESHAPE.get(arch),
+        ) as cam,
+    ):
+        cam.batch_size = SCORECAM_BATCH  # used by Score-CAM only
+        for chunk in chunks:
+            maps.append(torch.from_numpy(cam(input_tensor=chunk, targets=None)))
+    return torch.cat(maps)
+
+
+def cam_images(
+    name: str, seed: int, images: torch.Tensor, method: str = "gradcam"
+) -> torch.Tensor:
+    # Heat maps ('gradcam' or 'scorecam') of a model for a few uint8 images.
     model = load_model(name, seed)
-    x = eval_tf(images).to(device)
-    with torch.autocast(device.type, enabled=False):
-        return grad_cam(model, LAYER_OF[config_of(name).arch](model), x)
+    return cam_maps(model, config_of(name).arch, eval_tf(images).to(device), method)
 
 
 def leaf_attention(
@@ -71,12 +83,10 @@ def leaf_attention(
     batch_size: int = 32,
 ) -> np.ndarray:
     # Share of the Grad-CAM weight that lies on the leaf, for every image.
-    layer = LAYER_OF[arch](model)
     shares = []
     for start in range(0, len(images), batch_size):
         x = eval_tf(images[start : start + batch_size]).to(device)
-        with torch.autocast(device.type, enabled=False):
-            cams = grad_cam(model, layer, x)
+        cams = cam_maps(model, arch, x, "gradcam")
         on_leaf = (cams * masks[start : start + batch_size].float()).sum(dim=(1, 2))
         total = cams.sum(dim=(1, 2))
         shares.append(
@@ -103,7 +113,7 @@ def leaf_share_table(
     # Per-photo shares are cached in <run>/preds/ like the predictions, keyed by images and masks.
     mask_id = fingerprint(masks)
     file_of = {
-        v: f"leafshare_{safe_name(v)}_{fingerprint(tests[v])}_{mask_id}.npy"
+        v: f"leafshare-lib_{safe_name(v)}_{fingerprint(tests[v])}_{mask_id}.npy"
         for v in variants
     }
     files = {file_of[v]: tests[v] for v in variants}
