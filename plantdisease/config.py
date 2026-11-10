@@ -28,16 +28,16 @@ PATHS_CONFIG: dict[str, str] = {
 DATA_CONFIG: dict[str, Any] = {
     "classes": [
         "Tomato___healthy",
+        "Tomato___Bacterial_spot",
         "Tomato___Early_blight",
-        "Tomato___Leaf_Mold",
-        "Tomato___Spider_mites Two-spotted_spider_mite",
+        "Tomato___Late_blight",
     ],
     # one photo series per class, with official leaf ids (Section 3)
     "train_series": {
         "Tomato___healthy": "rs_hl",
+        "Tomato___Bacterial_spot": "gcrec_bact.sp",
         "Tomato___Early_blight": "rs_erly.b",
-        "Tomato___Leaf_Mold": "crnl_l.mold",
-        "Tomato___Spider_mites Two-spotted_spider_mite": "com.g_spm_fl",
+        "Tomato___Late_blight": "rs_late.b",
     },
     # a left-out series needs at least this many photos (stray single files are not a series)
     "min_series_photos": 20,
@@ -57,9 +57,9 @@ PLANTDOC_CONFIG: dict[str, Any] = {
     # PlantDoc folder that matches each class
     "folders": {
         "Tomato___healthy": "Tomato leaf",
+        "Tomato___Bacterial_spot": "Tomato leaf bacterial spot",
         "Tomato___Early_blight": "Tomato Early blight leaf",
-        "Tomato___Leaf_Mold": "Tomato mold leaf",
-        "Tomato___Spider_mites Two-spotted_spider_mite": "Tomato two spotted spider mites leaf",
+        "Tomato___Late_blight": "Tomato leaf late blight",
     },
 }
 
@@ -82,7 +82,7 @@ def config_dict() -> dict[str, dict[str, Any]]:
     }
 
 
-# 'Tomato___Spider_mites Two-spotted_spider_mite' -> 'Spider_mites'
+# 'Tomato___Bacterial_spot' -> 'Bacterial_spot'
 SHORT_NAMES = [c.split("___")[1].split()[0] for c in DATA_CONFIG["classes"]]
 for d in [PATHS_CONFIG["cache_dir"], PATHS_CONFIG["out_dir"], PATHS_CONFIG["runs_dir"]]:
     os.makedirs(d, exist_ok=True)

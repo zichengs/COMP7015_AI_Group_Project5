@@ -3,10 +3,11 @@
 import hashlib
 import json
 import os
-from collections.abc import Collection
 
 import numpy as np
 import pandas as pd
+import torch
+from torch.utils.data import random_split
 
 from ..config import DATA_CONFIG, PATHS_CONFIG, out_path
 from .leafmap import IMAGE_SUFFIXES, get_image_key, get_leaf_id
@@ -77,24 +78,26 @@ def load_records() -> tuple[
 # ----------------------------------------------------------------------------
 # Section 5: leaf-group split and leakage audit
 # ----------------------------------------------------------------------------
-def split_leaves(leaves: Collection[str]) -> dict[str, str]:
-    # Shuffled leaf ids -> {leaf id: 'train' / 'val' / 'test'}, 70/15/15 in this order.
-    train_frac, val_frac = DATA_CONFIG["split_fractions"]
-    n_train, n_val = round(train_frac * len(leaves)), round(val_frac * len(leaves))
-    return {
-        leaf: "train" if i < n_train else "val" if i < n_train + n_val else "test"
-        for i, leaf in enumerate(leaves)
-    }
-
-
 def make_split(df: pd.DataFrame) -> tuple[np.ndarray, ...]:
-    # Split the official leaf ids of every class 70/15/15 and audit the result.
+    # Split the official leaf ids of every class 70/15/15 (train / val / test) and audit the result.
     # Adds df["split"]; returns (train_idx, val_idx, test_idx).
-    rng = np.random.default_rng(DATA_CONFIG["split_seed"])
+    train_frac, val_frac = DATA_CONFIG["split_fractions"]
+    generator = torch.Generator().manual_seed(DATA_CONFIG["split_seed"])
     split_of_leaf = {}
     for c in range(len(DATA_CONFIG["classes"])):
-        leaves = rng.permutation(sorted(df.loc[df.class_index == c, "leaf_id"].unique()))
-        split_of_leaf |= split_leaves(leaves)
+        # sorted leaf ids of the class, so the split only depends on the seed
+        leaves = sorted(df.loc[df.class_index == c, "leaf_id"].unique())
+        n_train, n_val = round(train_frac * len(leaves)), round(val_frac * len(leaves))
+        n_test = len(leaves) - n_train - n_val
+
+        # random_split shuffles the leaf ids and cuts them into three subsets of the given sizes
+        parts = random_split(leaves, [n_train, n_val, n_test], generator=generator)
+
+        # pairs up parts with their labels
+        for name, part in zip(("train", "val", "test"), parts, strict=True):
+            split_of_leaf.update(dict.fromkeys((leaves[i] for i in part.indices), name))
+
+    # Adds "split" column to the dataframe
     df["split"] = df["leaf_id"].map(split_of_leaf)
 
     # Audit: every official leaf id (all photos of one leaf) lies in exactly one split
