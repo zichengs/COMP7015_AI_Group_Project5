@@ -1,0 +1,4 @@
+,errors per seed,wrong in every seed,wrong at least once
+SE-CNN lr=3e-3,"9, 12, 15",6,19
+"ResNet18 two-stage + cosine, lr=1e-4","9, 9, 8",4,13
+ViT-B/16 full fine-tuning,"5, 4, 6",3,8
