@@ -36,6 +36,7 @@
       63,
       64
     ],
+    "tuning_seed": 62,
     "swap_prob": 0.5
   }
 }

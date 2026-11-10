@@ -1,0 +1,4 @@
+,A - B (mean),A - B (sd),A higher in
+partial vs. head only,0.006727710566725016,0.00587195964071982,3 of 3 seeds
+full vs. partial,0.007747218067500857,0.002220401539095534,3 of 3 seeds
+augmentation vs. none (partial),0.007467525364826755,0.0053817641016752705,3 of 3 seeds

@@ -1,4 +1,5 @@
 {
-  "cnn": "SE-CNN (full recipe)",
-  "resnet18": "ResNet18 weight decay 1e-2"
+  "cnn": "SE-CNN lr=3e-3",
+  "resnet18": "ResNet18 two-stage + cosine, lr=1e-4",
+  "vit_b_16": "ViT-B/16 full fine-tuning"
 }

@@ -1,0 +1,5 @@
+run,val macro-F1,best epochs,trainable params,epochs trained,train time (s),train s/epoch
+ViT-B/16 head only,0.9742 ± 0.0022,"19, 5, 4",3076,13.0 ± 6.1,220.4 ± 87.2,17.2978547722202
+ViT-B/16 partial (last 2 blocks),0.9870 ± 0.0010,"16, 13, 10",14180356,17.7 ± 2.5,373.1 ± 52.8,21.119606389075944
+ViT-B/16 full fine-tuning,0.9963 ± 0.0004,"13, 8, 10",85801732,15.3 ± 2.5,595.3 ± 116.4,38.691949612674016
+"ViT-B/16 partial, no augmentation",0.9851 ± 0.0013,"12, 10, 12",14180356,16.3 ± 1.2,339.3 ± 34.9,20.739694704704164
