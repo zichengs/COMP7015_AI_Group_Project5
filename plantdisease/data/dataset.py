@@ -77,7 +77,15 @@ def prepare() -> Data:
     # The deterministic data protocol (Sections 3-5): the photos with an official leaf id, their
     # cached images and the leaf-group split.
     all_df = load_records()
-    df = all_df[all_df["source"] == "leaf map"].reset_index(drop=True)
+    df = all_df[all_df["source"] == "leaf map"]
+    max_leaves = DATA_CONFIG["max_leaves_per_class"]
+    if max_leaves > 0:
+        # smoke test: the first N leaf ids of every class (sorted, so deterministic), all their photos
+        kept = df.groupby("class_index")["leaf_id"].apply(
+            lambda ids: sorted(ids.unique())[:max_leaves]
+        )
+        df = df[df["leaf_id"].isin([leaf for ids in kept for leaf in ids])]
+    df = df.reset_index(drop=True)
     images = build_cache(df["path"], "color")
     train_idx, val_idx, test_idx = make_split(df)
     return Data(

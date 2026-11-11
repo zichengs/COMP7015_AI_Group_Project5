@@ -42,6 +42,8 @@ DATA_CONFIG: dict[str, Any] = {
     "split_fractions": (0.70, 0.15),
     # data loader workers
     "num_workers": int(env("NUM_WORKERS", 2)),
+    # smoke tests only (scripts/smoke_test.py): keep the first N leaves of every class; 0 = all
+    "max_leaves_per_class": int(env("MAX_LEAVES", 0)),
 }
 
 # PlantDoc field photos (Section 21.1)

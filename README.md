@@ -10,7 +10,7 @@ source .venv/bin/activate
 jupyter lab
 ```
 
-Without uv: `pip install torch torchvision torchinfo scikit-learn scipy pandas matplotlib jupyter`.
+Without uv: `pip install torch torchvision torchinfo grad-cam pydantic scikit-learn scipy pandas matplotlib jupyter`.
 
 The code runs on an NVIDIA GPU (CUDA, with mixed precision), on Apple silicon (MPS) and on the CPU; the device is chosen automatically.
 
@@ -27,13 +27,21 @@ Run the two notebooks in order, from the repository root:
 
 Every training run is saved under `outputs/runs/<run>__seed<seed>/`: the best checkpoint, the history (including the training time and whether it stopped early) and the configuration. Re-running a notebook loads finished runs instead of retraining them, and it reuses cached predictions. So an interrupted run can simply be resumed, and `02_robustness.ipynb` can be re-run on its own once `01_classification.ipynb` has run. Sections 9.3 and 10.3 write the selected models to `outputs/final_models.json`.
 
-A GPU is recommended: the full run trains about 60 models (24 of them ViTs). For a quick end-to-end test, write to a separate output folder:
+A GPU is recommended: the full run trains about 60 models (24 of them ViTs).
+
+### Smoke test (e.g. before running in the lab)
 
 ```bash
-EPOCHS_CNN=1 EPOCHS_RESNET=2 EPOCHS_VIT=4 SEEDS=62 OUT_DIR=./outputs_quick jupyter lab
+python scripts/smoke_test.py          # or: uv run python scripts/smoke_test.py
 ```
 
-`EPOCHS_VIT` must be at least 4, because the ViT trains only its head for the first 3 epochs.
+This checks the environment first: packages, GPU, git, the dataset folder, internet access and disk space. Then it runs **both notebooks top to bottom**, every cell including training, Grad-CAM / Score-CAM, the robustness tests and the PlantDoc download. It uses tiny settings: 12 leaves per class (`MAX_LEAVES`), one seed, and 1 / 2 / 4 epochs for the CNN / ResNet18 / ViT. It takes minutes instead of hours, and the scores are meaningless.
+
+- **Where results go:** it writes only to `outputs_smoke/` and `cache_smoke/`, never to `outputs/` or `cache/`, and doesn't change the notebooks. Executed copies are saved to `outputs_smoke/executed/`.
+- **What it prints:** PASS or FAIL for each notebook. On a failure, it shows the failing section and the error. The exit code is 0 only if everything passed.
+- **Options:** `--keep` keeps the smoke folders; `--leaves N` changes the subset size; `--only 01` runs one notebook.
+
+The same settings work by hand, for example `EPOCHS_CNN=1 EPOCHS_RESNET=2 EPOCHS_VIT=4 SEEDS=62 MAX_LEAVES=12 OUT_DIR=./outputs_quick CACHE_DIR=./cache_quick jupyter lab`. Use a separate `CACHE_DIR` whenever `MAX_LEAVES` is set, so the image cache of the full data is not rebuilt. `EPOCHS_VIT` must be at least 4, because the ViT trains only its head for the first 3 epochs.
 
 ## Method
 
@@ -65,6 +73,7 @@ The model recipes (learning rate, batch size, freezing, epochs, ...) are defined
 | `EPOCHS_CNN`, `EPOCHS_RESNET`, `EPOCHS_VIT` | `50`, `20`, `20` | maximum training epochs |
 | `PATIENCE_CNN`, `PATIENCE_RESNET`, `PATIENCE_VIT` | `10`, `5`, `5` | early stopping: epochs without a better validation macro-F1 (0 = off) |
 | `NUM_WORKERS` | `2` | data loader workers |
+| `MAX_LEAVES` | `0` (all) | smoke tests only: keep the first N leaves of every class (use with a separate `CACHE_DIR` and `OUT_DIR`) |
 
 Runs are deterministic: fixed seeds, deterministic algorithms, and a split seed that is separate from the training seeds.
 
@@ -92,6 +101,10 @@ The notebooks show the steps and the results. The shared code is in the `plantdi
 | `plots.py` | plotting helpers |
 
 `docs/archives/plant_disease_classification2.ipynb` and `docs/archives/plant_disease_classification3_julia.ipynb` are earlier single-notebook versions; they are kept for reference.
+
+## Declaration of AI usage
+
+We used [Claude Code](https://claude.com/claude-code) (Anthropic) to refactor code, draft helper scripts, debug, and edit the wording of this README and the report (`CLAUDE.md` holds its instructions). The research questions, experimental design, experiments and conclusions are our own. A group member checked every AI-suggested change before committing it, and all reported numbers come from our own training runs. Library code is credited below.
 
 ## Acknowledgements
 
