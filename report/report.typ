@@ -221,6 +221,12 @@ We retrained the three selected models with one extra augmentation. With probabi
   rule,
 )
 
+= Declaration of AI usage
+
+#todo[Team: check that this matches how each member used AI tools, then remove this note.]
+
+We used Claude Code (Anthropic), an AI coding assistant, during this project. We used it to refactor and restructure the code (moving logic from the notebooks into the `plantdisease` package), to draft helper code such as the smoke-test script, to debug and review code, and to edit the wording of the README and this report. The research questions, the experimental design and evaluation protocol, the choice of models and experiments, the training runs and the interpretation of the results are our own. Every AI-suggested change was read, run and checked by a group member before it was committed, and we can explain all of the code. All numbers in this report come from our own training runs. Code from libraries is credited below and in the repository README.
+
 = Acknowledgements and references
 
 *Libraries.* PyTorch and torchvision (models, ImageNet weights of ResNet18 and ViT-B/16, transforms), pytorch-grad-cam (Grad-CAM and Score-CAM), scikit-learn, SciPy, pandas, NumPy, Matplotlib and pydantic.
