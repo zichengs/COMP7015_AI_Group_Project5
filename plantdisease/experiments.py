@@ -1,5 +1,5 @@
 """What is trained: the settings of one run (``RunConfig``), the recipes of every experiment of
-notebooks 02 and 03, the derived runs of Sections 15 and 18, and the selected final models.
+Sections 7-10, the derived runs of Sections 15 and 18, and the selected final models.
 
 A run is identified by its name: ``config_of(name)`` gives its recipe in every notebook.
 """
@@ -76,7 +76,7 @@ class RunConfig(BaseModel):
 
 
 # ----------------------------------------------------------------------------
-# Custom CNN and ResNet18 (notebook 02): one base recipe each, every experiment changes one setting
+# Custom CNN and ResNet18 (Sections 7-9): one base recipe each, every experiment changes one setting
 # ----------------------------------------------------------------------------
 # Custom CNN (with SE attention), trained from scratch
 BASE_CNN = RunConfig(
@@ -131,7 +131,7 @@ RESNET_EXPERIMENTS = {
 }
 
 # ----------------------------------------------------------------------------
-# ViT-B/16 (notebook 03): fine-tuning strategies
+# ViT-B/16 (Section 10): fine-tuning strategies
 # ----------------------------------------------------------------------------
 BASE_VIT = RunConfig(
     arch="vit_b_16",
@@ -210,7 +210,7 @@ def config_of(name: str) -> RunConfig:
 
 
 # ----------------------------------------------------------------------------
-# Selected models (OUT_DIR/final_models.json): CNN and ResNet18 in notebook 02, ViT in notebook 03
+# Selected models (OUT_DIR/final_models.json): CNN and ResNet18 in Section 9.3, ViT in Section 10.3
 # ----------------------------------------------------------------------------
 FINAL_MODELS_FILE = out_path("final_models.json")
 
@@ -233,5 +233,7 @@ def load_final_models() -> tuple[str, str, str]:
     # The selected models -> (BEST_CNN, BEST_RESNET, BEST_VIT).
     selected = _read_selected()
     missing = {"cnn", "resnet18", "vit_b_16"} - set(selected)
-    assert not missing, f"run notebooks 02 and 03 first (missing: {sorted(missing)})"
+    assert not missing, (
+        f"run 01_classification.ipynb up to Section 10 first (missing: {sorted(missing)})"
+    )
     return selected["cnn"], selected["resnet18"], selected["vit_b_16"]

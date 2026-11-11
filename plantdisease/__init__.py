@@ -1,6 +1,6 @@
 """Plant disease classification on PlantVillage (COMP7015 group project, Topic 1).
 
-Shared code of the notebooks 01-06:
+Shared code of the notebooks 01_classification and 02_robustness:
 
 - ``config``        settings (PATHS_CONFIG, DATA_CONFIG, PLANTDOC_CONFIG, TRAIN_CONFIG)
 - ``device``        device, mixed precision, determinism, set_seed, synchronize

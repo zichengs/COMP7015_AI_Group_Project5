@@ -62,7 +62,7 @@ PLANTDOC_CONFIG: dict[str, Any] = {
 TRAIN_CONFIG: dict[str, Any] = {
     # training seeds of the final models
     "seeds": [int(s) for s in env("SEEDS", "62,63,64").split(",")],
-    # the single seed of the tuning runs and ablations (notebook 02)
+    # the single seed of the tuning runs and ablations (Section 9)
     "tuning_seed": 62,
     # background swap of Section 18: share of the training photos whose background is replaced
     "swap_prob": 0.5,
@@ -76,7 +76,7 @@ for d in [PATHS_CONFIG["cache_dir"], PATHS_CONFIG["out_dir"], PATHS_CONFIG["runs
 
 
 def save_config() -> None:
-    # Save all settings to OUT_DIR/config.json, one section per group (called in notebook 01).
+    # Save all settings to OUT_DIR/config.json, one section per group (called in Section 1).
     settings = {
         "paths": PATHS_CONFIG,
         "data": DATA_CONFIG,

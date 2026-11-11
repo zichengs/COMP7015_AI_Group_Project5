@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-COMP7015 group project: classify PlantVillage tomato leaves (healthy, bacterial spot, early blight, late blight) with a custom SE-CNN, a fine-tuned ResNet18 and a fine-tuned ViT-B/16. Then test how robust the models are to the background, colour, lighting, image quality and field photos. The work is a sequence of six notebooks backed by the `plantdisease/` package. The written report is in `report/` (Typst).
+COMP7015 group project: classify PlantVillage tomato leaves (healthy, bacterial spot, early blight, late blight) with a custom SE-CNN, a fine-tuned ResNet18 and a fine-tuned ViT-B/16. Then test how robust the models are to the background, colour, lighting, image quality and field photos. The work is two notebooks backed by the `plantdisease/` package. The written report is in `report/` (Typst).
 
 ## Commands
 
@@ -15,7 +15,7 @@ uvx ruff check plantdisease               # lint (config in ruff.toml)
 uvx ruff format plantdisease              # format
 
 # execute a notebook headlessly, saving outputs in place (run from the repo root)
-uv run jupyter nbconvert --to notebook --execute --inplace --ExecutePreprocessor.timeout=1800 04_test_evaluation.ipynb
+uv run jupyter nbconvert --to notebook --execute --inplace --ExecutePreprocessor.timeout=3600 01_classification.ipynb
 
 # quick end-to-end smoke run into a separate output folder (EPOCHS_VIT must be >= 4: 3 head-only epochs)
 EPOCHS_CNN=1 EPOCHS_RESNET=2 EPOCHS_VIT=4 SEEDS=62 OUT_DIR=./outputs_quick uv run jupyter lab
@@ -29,13 +29,17 @@ Ruff baseline: `uvx ruff check plantdisease` already reports some errors in file
 
 ## Notebook pipeline
 
-Run the notebooks in order: `01_data` → `02_cnn_resnet` → `03_vit` → `04_test_evaluation` → `05_robustness` → `06_discussion`. Section numbers (1–22) continue across notebooks, and the code comments refer to them ("Section 18"). Notebooks only call the package and plot; put logic in `plantdisease/`.
+Run the two notebooks in order:
+- `01_classification.ipynb`: Part 1, data (Sections 1–6); Part 2, CNN and ResNet18 (7–9); Part 3, ViT (10); Part 4, test evaluation, compute and Grad-CAM / Score-CAM (11–13); Part 5, summary tables (21) and discussion 22.1–22.3.
+- `02_robustness.ipynb`: Sections 14–20, then its own summary tables (21) and discussion 22.4–22.6 (robustness, limitations, conclusion).
 
-Each notebook passes work to the next through files in `OUT_DIR` (default `./outputs`):
-- 02 and 03 write the selected models to `final_models.json` via `save_selected`. 04 and 05 read them with `load_final_models()`.
-- Every notebook writes its tables (`.csv`) and figures (`.png`) to `OUT_DIR`. 06 only reads those CSVs.
+Section numbers continue across both notebooks, and the code comments refer to them ("Section 18"). Refer to sections, not notebook numbers. Notebooks only call the package and plot; put logic in `plantdisease/`. `01_classification` runs in one kernel, so watch for variable names reused across parts (`images` is `data.images`, for example).
 
-**Cost:** executing 02, 03 or 05 can train many models. 05 alone trains 24 derived runs if they don't exist yet. Check `outputs/runs/` before executing them, and ask before starting hours of GPU training.
+The notebooks pass work through files in `OUT_DIR` (default `./outputs`):
+- Sections 9.3 and 10.3 write the selected models to `final_models.json` via `save_selected`. Section 11 and `02_robustness` read them with `load_final_models()`.
+- Both notebooks write their tables (`.csv`) and figures (`.png`) to `OUT_DIR`. The Section 21 cells only read those CSVs.
+
+**Cost:** with all runs in `outputs/runs/`, re-executing either notebook only loads them. On a fresh output folder, `01_classification` trains 38 runs and `02_robustness` 24 more. Check `outputs/runs/` before executing a notebook, and ask before starting hours of GPU training.
 
 ## Architecture (the parts that span several files)
 
