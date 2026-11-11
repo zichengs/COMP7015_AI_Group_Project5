@@ -30,3 +30,7 @@ outputs/runs
 
 # Local folder
 pseudocode/
+
+# Smoke test (scripts/smoke_test.py)
+outputs_smoke/
+cache_smoke/
