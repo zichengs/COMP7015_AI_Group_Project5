@@ -1,0 +1,10 @@
+,prediction = class of the leaf,prediction = class of the background photo
+SE-CNN lr=3e-3,0.507 ± 0.015,0.250 ± 0.012
+SE-CNN lr=3e-3 + random backgrounds,0.940 ± 0.015,0.017 ± 0.008
+SE-CNN lr=3e-3 + class-matched backgrounds,0.720 ± 0.010,0.094 ± 0.006
+"ResNet18 two-stage + cosine, lr=1e-4",0.791 ± 0.020,0.124 ± 0.017
+"ResNet18 two-stage + cosine, lr=1e-4 + random backgrounds",0.982 ± 0.005,0.006 ± 0.002
+"ResNet18 two-stage + cosine, lr=1e-4 + class-matched backgrounds",0.954 ± 0.005,0.021 ± 0.004
+ViT-B/16 full fine-tuning,0.914 ± 0.008,0.021 ± 0.005
+ViT-B/16 full fine-tuning + random backgrounds,0.976 ± 0.004,0.007 ± 0.001
+ViT-B/16 full fine-tuning + class-matched backgrounds,0.957 ± 0.012,0.013 ± 0.004

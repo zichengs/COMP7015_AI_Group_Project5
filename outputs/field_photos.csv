@@ -1,0 +1,10 @@
+model,clean test,field photos,drop
+SE-CNN lr=3e-3,0.980 ± 0.005,0.229 ± 0.003,0.751085832338056
+SE-CNN lr=3e-3 + random backgrounds,0.974 ± 0.005,0.241 ± 0.024,0.7326094297705268
+SE-CNN lr=3e-3 + class-matched backgrounds,0.966 ± 0.005,0.268 ± 0.040,0.6980169236780904
+"ResNet18 two-stage + cosine, lr=1e-4",0.985 ± 0.001,0.192 ± 0.022,0.7928891145421917
+"ResNet18 two-stage + cosine, lr=1e-4 + random backgrounds",0.986 ± 0.002,0.285 ± 0.018,0.7006687513708516
+"ResNet18 two-stage + cosine, lr=1e-4 + class-matched backgrounds",0.983 ± 0.001,0.264 ± 0.023,0.7187901239555566
+ViT-B/16 full fine-tuning,0.992 ± 0.001,0.332 ± 0.025,0.6600010041291072
+ViT-B/16 full fine-tuning + random backgrounds,0.981 ± 0.004,0.370 ± 0.040,0.6112084288908517
+ViT-B/16 full fine-tuning + class-matched backgrounds,0.983 ± 0.005,0.320 ± 0.023,0.6624517617074852

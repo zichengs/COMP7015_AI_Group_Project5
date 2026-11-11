@@ -1,0 +1,10 @@
+,original,new background (stripes),same-class background,other-class background,background removed
+SE-CNN lr=3e-3,0.980 ± 0.005,0.218 ± 0.018,0.836 ± 0.000,0.481 ± 0.016,0.090 ± 0.003
+SE-CNN lr=3e-3 + random backgrounds,0.974 ± 0.005,0.919 ± 0.010,0.930 ± 0.005,0.924 ± 0.018,0.708 ± 0.024
+SE-CNN lr=3e-3 + class-matched backgrounds,0.966 ± 0.005,0.238 ± 0.033,0.948 ± 0.007,0.684 ± 0.023,0.225 ± 0.126
+"ResNet18 two-stage + cosine, lr=1e-4",0.985 ± 0.001,0.479 ± 0.039,0.930 ± 0.007,0.773 ± 0.017,0.423 ± 0.107
+"ResNet18 two-stage + cosine, lr=1e-4 + random backgrounds",0.986 ± 0.002,0.973 ± 0.002,0.980 ± 0.009,0.978 ± 0.006,0.933 ± 0.011
+"ResNet18 two-stage + cosine, lr=1e-4 + class-matched backgrounds",0.983 ± 0.001,0.737 ± 0.105,0.977 ± 0.001,0.944 ± 0.007,0.699 ± 0.136
+ViT-B/16 full fine-tuning,0.992 ± 0.001,0.937 ± 0.008,0.913 ± 0.010,0.894 ± 0.010,0.848 ± 0.035
+ViT-B/16 full fine-tuning + random backgrounds,0.981 ± 0.004,0.961 ± 0.013,0.971 ± 0.004,0.969 ± 0.006,0.946 ± 0.011
+ViT-B/16 full fine-tuning + class-matched backgrounds,0.983 ± 0.005,0.941 ± 0.015,0.968 ± 0.008,0.948 ± 0.014,0.856 ± 0.045

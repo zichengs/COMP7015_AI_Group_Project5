@@ -1,0 +1,7 @@
+model,variant,macro-F1,prediction = class of the background photo
+SE-CNN lr=3e-3,same-class background,0.836 ± 0.000,
+SE-CNN lr=3e-3,other-class background,0.481 ± 0.016,0.250 ± 0.012
+"ResNet18 two-stage + cosine, lr=1e-4",same-class background,0.930 ± 0.007,
+"ResNet18 two-stage + cosine, lr=1e-4",other-class background,0.773 ± 0.017,0.124 ± 0.017
+ViT-B/16 full fine-tuning,same-class background,0.913 ± 0.010,
+ViT-B/16 full fine-tuning,other-class background,0.894 ± 0.010,0.021 ± 0.005

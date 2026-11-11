@@ -1,0 +1,4 @@
+,accuracy,macro-F1
+four image corners only,0.8210526315789474,0.7909577181637273
+"guessing uniformly (reference, mean of 100 draws)",0.2505526315789474,0.2420632749068259
+always the largest class: Bacterial_spot (reference),0.42105263157894735,0.14814814814814814

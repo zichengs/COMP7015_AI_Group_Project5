@@ -1,0 +1,31 @@
+condition,model,baseline,A - B (mean),A - B (sd),A higher in
+original,SE-CNN lr=3e-3 + random backgrounds,SE-CNN lr=3e-3,-0.005790124164461526,0.004229641417667958,0 of 3 seeds
+original,SE-CNN lr=3e-3 + class-matched backgrounds,SE-CNN lr=3e-3,-0.013886409639697783,0.007785525117235147,0 of 3 seeds
+original,"ResNet18 two-stage + cosine, lr=1e-4 + random backgrounds","ResNet18 two-stage + cosine, lr=1e-4",0.0011802308029699171,0.0009854167742557333,3 of 3 seeds
+original,"ResNet18 two-stage + cosine, lr=1e-4 + class-matched backgrounds","ResNet18 two-stage + cosine, lr=1e-4",-0.0017490573702407068,3.0426393309574135e-05,0 of 3 seeds
+original,ViT-B/16 full fine-tuning + random backgrounds,ViT-B/16 full fine-tuning,-0.010202661728712573,0.0038509050069315985,0 of 3 seeds
+original,ViT-B/16 full fine-tuning + class-matched backgrounds,ViT-B/16 full fine-tuning,-0.009047828774372935,0.004010691443010476,0 of 3 seeds
+new background (stripes),SE-CNN lr=3e-3 + random backgrounds,SE-CNN lr=3e-3,0.7010814240811611,0.0076249280169851915,3 of 3 seeds
+new background (stripes),SE-CNN lr=3e-3 + class-matched backgrounds,SE-CNN lr=3e-3,0.02005651644169056,0.01690983881375632,3 of 3 seeds
+new background (stripes),"ResNet18 two-stage + cosine, lr=1e-4 + random backgrounds","ResNet18 two-stage + cosine, lr=1e-4",0.49408639550384387,0.040271180605133496,3 of 3 seeds
+new background (stripes),"ResNet18 two-stage + cosine, lr=1e-4 + class-matched backgrounds","ResNet18 two-stage + cosine, lr=1e-4",0.25839836337089733,0.12381036442220059,3 of 3 seeds
+new background (stripes),ViT-B/16 full fine-tuning + random backgrounds,ViT-B/16 full fine-tuning,0.024338686654501895,0.013051621886448162,3 of 3 seeds
+new background (stripes),ViT-B/16 full fine-tuning + class-matched backgrounds,ViT-B/16 full fine-tuning,0.004764820103905221,0.015404629062438812,2 of 3 seeds
+same-class background,SE-CNN lr=3e-3 + random backgrounds,SE-CNN lr=3e-3,0.0940293014602489,0.004968726902386733,3 of 3 seeds
+same-class background,SE-CNN lr=3e-3 + class-matched backgrounds,SE-CNN lr=3e-3,0.11221299184312199,0.007401396757017541,3 of 3 seeds
+same-class background,"ResNet18 two-stage + cosine, lr=1e-4 + random backgrounds","ResNet18 two-stage + cosine, lr=1e-4",0.04992126445484546,0.002883949486484043,3 of 3 seeds
+same-class background,"ResNet18 two-stage + cosine, lr=1e-4 + class-matched backgrounds","ResNet18 two-stage + cosine, lr=1e-4",0.046945148025189974,0.007141600422216295,3 of 3 seeds
+same-class background,ViT-B/16 full fine-tuning + random backgrounds,ViT-B/16 full fine-tuning,0.05862065358844515,0.007687158430924318,3 of 3 seeds
+same-class background,ViT-B/16 full fine-tuning + class-matched backgrounds,ViT-B/16 full fine-tuning,0.05497472198824338,0.017793444363547736,3 of 3 seeds
+other-class background,SE-CNN lr=3e-3 + random backgrounds,SE-CNN lr=3e-3,0.44232330758946586,0.02255304200937842,3 of 3 seeds
+other-class background,SE-CNN lr=3e-3 + class-matched backgrounds,SE-CNN lr=3e-3,0.20242089295123808,0.03491251588294251,3 of 3 seeds
+other-class background,"ResNet18 two-stage + cosine, lr=1e-4 + random backgrounds","ResNet18 two-stage + cosine, lr=1e-4",0.20442752851224436,0.011476925349981792,3 of 3 seeds
+other-class background,"ResNet18 two-stage + cosine, lr=1e-4 + class-matched backgrounds","ResNet18 two-stage + cosine, lr=1e-4",0.1704095177330053,0.014026495487546867,3 of 3 seeds
+other-class background,ViT-B/16 full fine-tuning + random backgrounds,ViT-B/16 full fine-tuning,0.07524623327529485,0.0037144001793628584,3 of 3 seeds
+other-class background,ViT-B/16 full fine-tuning + class-matched backgrounds,ViT-B/16 full fine-tuning,0.05344757496403426,0.023716287435885386,3 of 3 seeds
+background removed,SE-CNN lr=3e-3 + random backgrounds,SE-CNN lr=3e-3,0.6177065915285991,0.02534616234117042,3 of 3 seeds
+background removed,SE-CNN lr=3e-3 + class-matched backgrounds,SE-CNN lr=3e-3,0.13509239271503723,0.12883023004118838,3 of 3 seeds
+background removed,"ResNet18 two-stage + cosine, lr=1e-4 + random backgrounds","ResNet18 two-stage + cosine, lr=1e-4",0.5099157589023919,0.09665974159190846,3 of 3 seeds
+background removed,"ResNet18 two-stage + cosine, lr=1e-4 + class-matched backgrounds","ResNet18 two-stage + cosine, lr=1e-4",0.2751019942623916,0.04026910388747312,3 of 3 seeds
+background removed,ViT-B/16 full fine-tuning + random backgrounds,ViT-B/16 full fine-tuning,0.09848546825278186,0.04244669857442669,3 of 3 seeds
+background removed,ViT-B/16 full fine-tuning + class-matched backgrounds,ViT-B/16 full fine-tuning,0.007954816629167564,0.01408519778114891,2 of 3 seeds

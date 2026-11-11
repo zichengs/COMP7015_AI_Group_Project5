@@ -1,0 +1,28 @@
+model,condition,leaf share,sd,leaf area share
+SE-CNN lr=3e-3,original,0.5335278,0.028851265054675782,0.44967207312583923
+SE-CNN lr=3e-3,background removed,0.6668113,0.06357703488699949,0.44967207312583923
+SE-CNN lr=3e-3,other-class background,0.58596945,0.022392411855179713,0.44967207312583923
+"ResNet18 two-stage + cosine, lr=1e-4",original,0.6045498,0.01138528599004351,0.44967207312583923
+"ResNet18 two-stage + cosine, lr=1e-4",background removed,0.60098654,0.007945081627157692,0.44967207312583923
+"ResNet18 two-stage + cosine, lr=1e-4",other-class background,0.6325684,0.013467410121905067,0.44967207312583923
+ViT-B/16 full fine-tuning,original,0.40852106,0.11735023454056277,0.44967207312583923
+ViT-B/16 full fine-tuning,background removed,0.6147525,0.12076262655859875,0.44967207312583923
+ViT-B/16 full fine-tuning,other-class background,0.5890477,0.11132506489820955,0.44967207312583923
+SE-CNN lr=3e-3 + random backgrounds,original,0.7494245,0.013335711709289443,0.44967207312583923
+SE-CNN lr=3e-3 + random backgrounds,background removed,0.86074144,0.014210308501645437,0.44967207312583923
+SE-CNN lr=3e-3 + random backgrounds,other-class background,0.8430131,0.010137164122905877,0.44967207312583923
+SE-CNN lr=3e-3 + class-matched backgrounds,original,0.6711858,0.014252328610068756,0.44967207312583923
+SE-CNN lr=3e-3 + class-matched backgrounds,background removed,0.5214584,0.07471904216158938,0.44967207312583923
+SE-CNN lr=3e-3 + class-matched backgrounds,other-class background,0.7240904,0.005024811812424321,0.44967207312583923
+"ResNet18 two-stage + cosine, lr=1e-4 + random backgrounds",original,0.69987375,0.005513266601063462,0.44967207312583923
+"ResNet18 two-stage + cosine, lr=1e-4 + random backgrounds",background removed,0.7628673,0.0066251165608672445,0.44967207312583923
+"ResNet18 two-stage + cosine, lr=1e-4 + random backgrounds",other-class background,0.7285745,0.004495979724952561,0.44967207312583923
+"ResNet18 two-stage + cosine, lr=1e-4 + class-matched backgrounds",original,0.66792756,0.0017656153495621259,0.44967207312583923
+"ResNet18 two-stage + cosine, lr=1e-4 + class-matched backgrounds",background removed,0.7169679,0.03765933942245976,0.44967207312583923
+"ResNet18 two-stage + cosine, lr=1e-4 + class-matched backgrounds",other-class background,0.7262444,0.0037193288658863726,0.44967207312583923
+ViT-B/16 full fine-tuning + random backgrounds,original,0.59764904,0.11567439389230284,0.44967207312583923
+ViT-B/16 full fine-tuning + random backgrounds,background removed,0.62497264,0.124192709186283,0.44967207312583923
+ViT-B/16 full fine-tuning + random backgrounds,other-class background,0.6718974,0.08130998433371632,0.44967207312583923
+ViT-B/16 full fine-tuning + class-matched backgrounds,original,0.43905807,0.16137527371726876,0.44967207312583923
+ViT-B/16 full fine-tuning + class-matched backgrounds,background removed,0.72655886,0.1103434233979652,0.44967207312583923
+ViT-B/16 full fine-tuning + class-matched backgrounds,other-class background,0.6344281,0.12101053934949191,0.44967207312583923
