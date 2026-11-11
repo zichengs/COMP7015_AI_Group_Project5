@@ -37,7 +37,7 @@ from .predictions import predict
 
 
 def train_dataset(cfg: RunConfig, data: Data) -> CachedDataset:
-    # Training set of a configuration: its input version, augmentation and (Section 18) background swap.
+    # Training set of a configuration: its input version, augmentation and (Section 20) background swap.
     transform = train_tf if cfg.augment else eval_tf
     images = data.input_images(cfg.input)
     if cfg.background_swap > 0:

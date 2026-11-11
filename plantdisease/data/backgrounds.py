@@ -68,7 +68,7 @@ def stripes(n: int, h: int, w: int, seed: int = 1) -> torch.Tensor:
 
 
 # ----------------------------------------------------------------------------
-# Section 14: the same test leaves under several conditions
+# Section 16: the same test leaves under several conditions
 # ----------------------------------------------------------------------------
 @dataclass
 class TestVariants:
@@ -83,7 +83,7 @@ class TestVariants:
 
 
 def image_changes(images: torch.Tensor) -> dict[str, torch.Tensor]:
-    # Grayscale, darker, blurred and noisy versions of uint8 photos (Section 14).
+    # Grayscale, darker, blurred and noisy versions of uint8 photos (Section 16).
     gen = torch.Generator().manual_seed(0)
     noisy = images.float() + 20 * torch.randn(images.shape, generator=gen)
     return {
@@ -97,7 +97,7 @@ def image_changes(images: torch.Tensor) -> dict[str, torch.Tensor]:
 
 
 def make_test_variants(data: Data, verbose: bool = True) -> TestVariants:
-    # Section 14: original, background removed, grayscale, darker, blur and noise versions of the test leaves.
+    # Section 16: original, background removed, grayscale, darker, blur and noise versions of the test leaves.
     seg_images, exists = data.segmented
     has_seg = exists[data.test_idx]
     if verbose:
@@ -115,7 +115,7 @@ def make_test_variants(data: Data, verbose: bool = True) -> TestVariants:
 
 
 # ----------------------------------------------------------------------------
-# Section 16: the same leaf on another background
+# Section 18: the same leaf on another background
 # ----------------------------------------------------------------------------
 @dataclass
 class BackgroundTests:
@@ -187,7 +187,7 @@ def make_background_tests(tv: TestVariants, verbose: bool = True) -> BackgroundT
 
 
 # ----------------------------------------------------------------------------
-# Section 18: training with random backgrounds
+# Section 20: training with random backgrounds
 # ----------------------------------------------------------------------------
 class BackgroundSwapDataset(CachedDataset):
     # Like CachedDataset, but with probability p everything outside the leaf is replaced by a background:

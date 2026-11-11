@@ -44,7 +44,7 @@ DATA_CONFIG: dict[str, Any] = {
     "num_workers": int(env("NUM_WORKERS", 2)),
 }
 
-# PlantDoc field photos (Section 19.1)
+# PlantDoc field photos (Section 21.1)
 PLANTDOC_CONFIG: dict[str, Any] = {
     # where the dataset is downloaded
     "root": env("FIELD_ROOT", "./PlantDoc-Dataset"),
@@ -64,7 +64,7 @@ TRAIN_CONFIG: dict[str, Any] = {
     "seeds": [int(s) for s in env("SEEDS", "62,63,64").split(",")],
     # the single seed of the tuning runs and ablations (Section 9)
     "tuning_seed": 62,
-    # background swap of Section 18: share of the training photos whose background is replaced
+    # background swap of Section 20: share of the training photos whose background is replaced
     "swap_prob": 0.5,
 }
 

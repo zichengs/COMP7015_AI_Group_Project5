@@ -12,7 +12,7 @@ Shared code of the notebooks 01_classification and 02_robustness:
     - ``loaders``      preprocessing, augmentation, datasets and loaders
     - ``dataset``      the Data object (``prepare()``)
     - ``backgrounds``  test variants, background tests, background swap
-- ``experiments``   what is trained: ``RunConfig`` (the settings of one run), the recipes of all experiments, derived runs (Sections 15, 18), selected models
+- ``experiments``   what is trained: ``RunConfig`` (the settings of one run), the recipes of all experiments, derived runs (Sections 17, 20), selected models
 - ``models``        custom CNN with SE attention, ResNet18, ViT-B/16
 - ``train``         training engine: ``run(name, data)``, early stopping, checkpoints, saved history
 - ``predictions``   rebuild a model from a finished run, predictions with an on-disk cache
