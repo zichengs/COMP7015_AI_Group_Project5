@@ -32,13 +32,13 @@ Ruff baseline: `uvx ruff check plantdisease` already reports some errors in file
 
 Run the two notebooks in order:
 - `01_classification.ipynb`, Sections 1–14: data (1–6), CNN and ResNet18 (7–9), ViT (10), test evaluation, compute, Grad-CAM (CNNs) and gradient-weighted attention (ViT) (11–13) and a short discussion (14).
-- `02_robustness.ipynb`, Sections 15–23: robustness (15–21), its results summary tables (22) and discussion (23: robustness, limitations, conclusion).
+- `02_robustness.ipynb`, Sections 15–22: robustness (15–21) and a short discussion (22: robustness, limitations, conclusion).
 
 Section numbers continue across both notebooks. The notebooks refer to each other by section ("Section 19"); refer to sections, not notebook numbers. The `plantdisease/` code never refers to notebook sections. Notebooks only call the package and plot; put logic in `plantdisease/`. `01_classification` runs in one kernel, so watch for variable names reused across sections (`images` is `data.images`, for example).
 
 The notebooks pass work through files in `OUT_DIR` (default `./outputs`):
 - Sections 9.3 and 10.3 write the selected models to `final_models.json` via `save_selected`. Section 11 and `02_robustness` read them with `load_final_models()`.
-- Both notebooks write their tables (`.csv`) and figures (`.png`) to `OUT_DIR`. The Results Summary cell of `02_robustness` (Section 22) only reads those CSVs.
+- Both notebooks write their tables (`.csv`) and figures (`.png`) to `OUT_DIR`.
 
 **Cost:** with all runs in `outputs/runs/`, re-executing either notebook only loads them. On a fresh output folder, `01_classification` trains 38 runs and `02_robustness` 24 more. Check `outputs/runs/` before executing a notebook, and ask before starting hours of GPU training.
 
