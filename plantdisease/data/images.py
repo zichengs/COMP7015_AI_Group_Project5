@@ -1,5 +1,3 @@
-"""Image cache and image versions: decode and resize once, segmented and grayscale versions, leaf masks (Section 4)."""
-
 import os
 from collections.abc import Iterable
 from functools import cache

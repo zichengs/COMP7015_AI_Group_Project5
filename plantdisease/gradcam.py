@@ -1,6 +1,3 @@
-"""Class activation maps (Grad-CAM, Score-CAM) and the share of the attention that lies on the leaf
-(Sections 13 and 19). The maps are computed with the pytorch-grad-cam library (`grad-cam` on PyPI)."""
-
 import math
 from collections.abc import Iterable, Sequence
 from functools import partial

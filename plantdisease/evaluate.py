@@ -1,13 +1,3 @@
-"""Metrics, seed statistics, compute cost and confidence (Sections 9-22).
-
-Uncertainty follows Zhouyang's protocol: every model is trained with the seeds of TRAIN_CONFIG["seeds"] on one
-fixed split; results are the mean ± sample standard deviation over these seeds. Two models trained
-with the same seed are compared seed by seed ("higher in k of n seeds"). The standard deviation
-covers the randomness of training, not the choice of test leaves.
-
-Predictions of one model are an array (seeds, N), see predictions.py.
-"""
-
 import os
 import time
 from collections.abc import Iterable
@@ -137,7 +127,7 @@ def field_table(
 
 
 # ----------------------------------------------------------------------------
-# Compute: inference (ours) and training cost (Zhouyang)
+# Compute
 # ----------------------------------------------------------------------------
 def measure_latency(model: nn.Module, batch_size: int, repeats: int = 20) -> float:
     # Inference time in ms per image on the current device, after a warm-up.

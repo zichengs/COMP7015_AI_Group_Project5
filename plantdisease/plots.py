@@ -1,5 +1,3 @@
-"""Small plotting helpers shared by the notebooks."""
-
 from collections.abc import Sequence
 from typing import Any
 

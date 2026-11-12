@@ -1,5 +1,3 @@
-"""Models: custom CNN with optional SE attention, ResNet18, ViT-B/16, and two-stage freezing (Sections 7 and 10)."""
-
 from torch import Tensor, nn
 from torchvision import models
 

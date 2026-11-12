@@ -1,5 +1,3 @@
-"""Downloads: PlantVillage (git clone) and PlantDoc (file by file over HTTPS)."""
-
 import json
 import os
 import re

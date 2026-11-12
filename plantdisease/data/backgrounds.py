@@ -1,5 +1,3 @@
-"""Leaf masks and backgrounds: test variants (14), same-leaf background tests (16), countermeasure (18)."""
-
 import random
 from collections.abc import Callable
 from dataclasses import dataclass

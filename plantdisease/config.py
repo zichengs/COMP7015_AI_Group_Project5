@@ -1,12 +1,3 @@
-"""Configuration (Section 1).
-
-The settings are split into four dictionaries: ``PATHS_CONFIG`` (where data and results live),
-``DATA_CONFIG`` (the PlantVillage protocol), ``PLANTDOC_CONFIG`` (the PlantDoc field photos) and
-``TRAIN_CONFIG`` (training seeds, background-swap probability). The model recipes, with their epochs
-and early stopping, are defined in ``experiments.py``, the device is in ``device.py``. Paths, epochs and seeds
-can be overridden with environment variables, e.g. ``EPOCHS_CNN=1 SEEDS=62`` for a quick test.
-"""
-
 import json
 import os
 import re

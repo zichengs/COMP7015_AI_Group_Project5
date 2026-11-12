@@ -1,9 +1,3 @@
-"""What is trained: the settings of one run (``RunConfig``), the recipes of every experiment of
-Sections 7-10, the derived runs of Sections 17 and 20, and the selected final models.
-
-A run is identified by its name: ``config_of(name)`` gives its recipe in every notebook.
-"""
-
 import json
 import os
 from collections.abc import Iterable

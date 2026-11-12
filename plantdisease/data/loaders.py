@@ -1,5 +1,3 @@
-"""Preprocessing, augmentation and data loaders (Section 6)."""
-
 import random
 from collections.abc import Callable
 

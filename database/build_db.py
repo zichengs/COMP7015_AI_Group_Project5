@@ -1,8 +1,3 @@
-"""Build a SQLite database over the PlantVillage dataset.
-
-Usage: python database/build_db.py [--data-root ./PlantVillage-Dataset] [--db ./database/plantvillage.db]
-"""
-
 import argparse
 import hashlib
 import json

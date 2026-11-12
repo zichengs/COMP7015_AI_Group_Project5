@@ -1,5 +1,3 @@
-"""The Data object: everything of the data protocol in one call, `prepare()` (used by every notebook)."""
-
 from dataclasses import dataclass
 from functools import cached_property
 

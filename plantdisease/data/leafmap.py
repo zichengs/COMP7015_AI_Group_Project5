@@ -1,8 +1,3 @@
-"""Leaf ids of PlantVillage photos from the dataset's leaf-map.json (Section 3).
-
-No torch import, so that database/build_db.py can use it without loading the notebooks' setup.
-"""
-
 import re
 
 IMAGE_SUFFIXES = (".jpg", ".jpeg", ".png")

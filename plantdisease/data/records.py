@@ -1,5 +1,3 @@
-"""Photo table and split: which photos, which leaf, which split (Sections 3 and 5)."""
-
 import hashlib
 import json
 import os

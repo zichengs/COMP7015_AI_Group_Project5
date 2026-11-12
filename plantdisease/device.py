@@ -1,5 +1,3 @@
-"""Device, mixed precision, determinism and seeding (Section 1)."""
-
 import os
 
 # Required for deterministic CUDA matmuls; must be set before torch is imported.

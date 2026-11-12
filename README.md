@@ -47,7 +47,7 @@ The same settings work by hand, for example `EPOCHS_CNN=1 EPOCHS_RESNET=2 EPOCHS
 
 - **Data.** Every photo of the four classes with an official leaf id in `leaf-map.json`; photos without one are excluded. The official leaf ids of every class are split 70/15/15 with a fixed seed, and the audit checks that no leaf id crosses splits.
 - **Preprocessing.** Every photo is resized to 224×224 once and cached. Training augmentation: flips, 90° rotations, ±10% brightness/contrast.
-- **ViT** (Zhouyang's protocol). 3 epochs train only the new head (lr 1e-3). Then the head (lr 1e-4) and the unfrozen backbone (lr 1e-5) train for up to 17 more epochs. AdamW with weight decay 0.01, constant learning rate, batch 16, class-weighted loss. Three strategies: head only, partial (last 2 blocks + final LayerNorm) and full fine-tuning.
+- **ViT** 3 epochs train only the new head (lr 1e-3). Then the head (lr 1e-4) and the unfrozen backbone (lr 1e-5) train for up to 17 more epochs. AdamW with weight decay 0.01, constant learning rate, batch 16, class-weighted loss. Three strategies: head only, partial (last 2 blocks + final LayerNorm) and full fine-tuning.
 - **Early stopping.** Every run stops when the validation macro-F1 has not improved for `patience` epochs of its last training stage (10 epochs for the custom CNN, 5 for ResNet18 and the ViT: `patience` of the recipes in `plantdisease/experiments.py`); the checkpoint of the best epoch is kept.
 - **Uncertainty.** Every model is trained with seeds 62, 63 and 64 on one fixed split. Results are the mean ± sample standard deviation over the seeds, and models trained with the same seeds are compared seed by seed.
 - **Compute.** Parameters, checkpoint size and inference latency; trainable parameters, epochs trained and training time without validation.
@@ -100,11 +100,9 @@ The notebooks show the steps and the results. The shared code is in the `plantdi
 | `gradcam.py` | Grad-CAM and Score-CAM via [pytorch-grad-cam](https://github.com/jacobgil/pytorch-grad-cam) (CNNs and ViT), and the share of the attention on the leaf |
 | `plots.py` | plotting helpers |
 
-`docs/archives/plant_disease_classification2.ipynb` and `docs/archives/plant_disease_classification3_julia.ipynb` are earlier single-notebook versions; they are kept for reference.
-
 ## Declaration of AI usage
 
-We used [Claude Code](https://claude.com/claude-code) (Anthropic) to refactor code, draft helper scripts, debug, and edit the wording of this README and the report (`CLAUDE.md` holds its instructions). The research questions, experimental design, experiments and conclusions are our own. A group member checked every AI-suggested change before committing it, and all reported numbers come from our own training runs. Library code is credited below.
+We used Claude Code (Anthropic) to refactor code, draft helper scripts, debug, and edit the wording of this README and the report (`CLAUDE.md` holds its instructions). The research questions, experimental design, experiments and conclusions are our own. All reported numbers come from our own training runs. Library code is credited below.
 
 ## Acknowledgements
 
@@ -115,4 +113,4 @@ We used [Claude Code](https://claude.com/claude-code) (Anthropic) to refactor co
 - PlantDoc dataset: Singh et al. (2020), <https://github.com/pratikkayal/PlantDoc-Dataset>
 - Background bias in PlantVillage: Noyan (2022)
 - Squeeze-and-Excitation: Hu et al. (2018); Grad-CAM: Selvaraju et al. (2017); Score-CAM: Wang et al. (2020); ViT: Dosovitskiy et al. (2021)
-- ViT fine-tuning protocol and input ablation: Zhouyang (team member)
+- ViT fine-tuning protocol and input ablation

@@ -1,5 +1,3 @@
-"""Training engine (Section 8): `run` trains a run name with every seed, or loads the runs that were trained before."""
-
 import json
 import os
 import shutil

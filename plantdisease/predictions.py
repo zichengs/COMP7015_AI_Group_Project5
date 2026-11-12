@@ -1,10 +1,3 @@
-"""Using finished runs: rebuild a model from its checkpoint and predict, with an on-disk cache.
-
-Predictions of several models on several image sets have one layout in every notebook:
-``probs[set name][model name]`` is an array (seeds, N, K), ``preds[set name][model name]`` an array
-(seeds, N). The first axis follows TRAIN_CONFIG["seeds"].
-"""
-
 import hashlib
 import os
 from collections.abc import Callable, Iterable, Sequence
