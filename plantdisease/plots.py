@@ -1,3 +1,4 @@
+import math
 from collections.abc import Sequence
 from typing import Any
 
@@ -7,7 +8,6 @@ import pandas as pd
 import torch
 from matplotlib.axes import Axes
 from pydantic import BaseModel
-from torchvision.utils import make_grid
 
 from .config import SHORT_NAMES, out_path
 from .evaluate import sd
@@ -76,12 +76,25 @@ def mean_curve(
     return np.arange(1, n_epochs + 1), mean, spread, values
 
 
-def show_batch(x: torch.Tensor, y: torch.Tensor, title: str) -> None:
-    # A batch of (normalised) training images in one row, with the classes of the first eight.
-    plt.figure(figsize=(12, 3.5))
-    plt.imshow(make_grid(x, nrow=8, padding=2, normalize=True).permute(1, 2, 0))
-    plt.axis("off")
-    plt.title(f"{title}: " + ", ".join(SHORT_NAMES[c] for c in y[:8]) + ", ...")
+def show_batch(x: torch.Tensor, y: torch.Tensor, title: str, ncols: int = 8) -> None:
+    # A batch of (normalised) training images in a grid, each titled with its class. The batch is
+    # scaled to [0, 1] as a whole, so brightness differences between the images stay visible.
+    images = (x - x.min()) / (x.max() - x.min()).clamp_min(1e-6)
+    nrows = math.ceil(len(x) / ncols)
+    # constrained layout keeps every row of titles clear of the images above it
+    fig, axes = plt.subplots(
+        nrows,
+        ncols,
+        figsize=(1.6 * ncols, 1.9 * nrows + 0.4),
+        squeeze=False,
+        layout="constrained",
+    )
+    for ax in axes.flat:
+        ax.axis("off")
+    for ax, image, label in zip(axes.flat, images, y, strict=False):
+        ax.imshow(image.permute(1, 2, 0))
+        ax.set_title(SHORT_NAMES[label], fontsize=8)
+    fig.suptitle(title)
     plt.show()
 
 

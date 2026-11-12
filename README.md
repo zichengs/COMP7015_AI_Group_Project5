@@ -22,7 +22,7 @@ Run the two notebooks in order, from the repository root:
 
 | Notebook | Sections | Content |
 |---|---|---|
-| `01_classification.ipynb` | 1–15 | **1–6:** configuration, download, leaf grouping, image cache, leaf-group split and leakage audit, augmentation. **7–9:** custom CNN and ResNet18, training engine, tuning and ablations, selection with all seeds. **10:** ViT-B/16 fine-tuning strategies (head only, last two blocks, full), augmentation ablation, selection. **11–13:** test results of the final models over 3 seeds, compute trade-offs (inference and training cost), error analysis, Grad-CAM and Score-CAM (all three models). **14–15:** results summary and discussion |
+| `01_classification.ipynb` | 1–15 | **1–6:** configuration, download, leaf grouping, image cache, leaf-group split and leakage audit, augmentation. **7–9:** custom CNN and ResNet18, training engine, tuning and ablations, selection with all seeds. **10:** ViT-B/16 fine-tuning strategies (head only, last two blocks, full), augmentation ablation, selection. **11–13:** test results of the final models over 3 seeds, compute trade-offs (inference and training cost), error analysis, Grad-CAM (CNNs) and attention rollout (ViT). **14–15:** results summary and discussion |
 | `02_robustness.ipynb` | 16–24 | background-only baseline (what four image corners reveal); robustness to background removal, grayscale, lighting, blur and noise; ViT retrained on grayscale and background-removed photos; the same leaf on other backgrounds; leaf attention; countermeasure (random backgrounds); PlantDoc field photos; confidence and abstention (16–22); results summary (23); discussion, limitations and conclusion (24) |
 
 Every training run is saved under `outputs/runs/<run>__seed<seed>/`: the best checkpoint, the history (including the training time and whether it stopped early) and the configuration. Re-running a notebook loads finished runs instead of retraining them, and it reuses cached predictions. So an interrupted run can simply be resumed, and `02_robustness.ipynb` can be re-run on its own once `01_classification.ipynb` has run. Sections 9.3 and 10.3 write the selected models to `outputs/final_models.json`.
@@ -35,7 +35,7 @@ A GPU is recommended: the full run trains about 60 models (24 of them ViTs).
 python scripts/smoke_test.py          # or: uv run python scripts/smoke_test.py
 ```
 
-This checks the environment first: packages, GPU, git, the dataset folder, internet access and disk space. Then it runs **both notebooks top to bottom**, every cell including training, Grad-CAM / Score-CAM, the robustness tests and the PlantDoc download. It uses tiny settings: 12 leaves per class (`MAX_LEAVES`), one seed, and 1 / 2 / 4 epochs for the CNN / ResNet18 / ViT. It takes minutes instead of hours, and the scores are meaningless.
+This checks the environment first: packages, GPU, git, the dataset folder, internet access and disk space. Then it runs **both notebooks top to bottom**, every cell including training, Grad-CAM / attention rollout, the robustness tests and the PlantDoc download. It uses tiny settings: 12 leaves per class (`MAX_LEAVES`), one seed, and 1 / 2 / 4 epochs for the CNN / ResNet18 / ViT. It takes minutes instead of hours, and the scores are meaningless.
 
 - **Where results go:** it writes only to `outputs_smoke/` and `cache_smoke/`, never to `outputs/` or `cache/`, and doesn't change the notebooks. Executed copies are saved to `outputs_smoke/executed/`.
 - **What it prints:** PASS or FAIL for each notebook. On a failure, it shows the failing section and the error. The exit code is 0 only if everything passed.
@@ -97,7 +97,7 @@ The notebooks show the steps and the results. The shared code is in the `plantdi
 | `train.py` | training engine: `run(name, data)` trains a run with every seed (AdamW, schedules, two-stage fine-tuning with separate head/backbone learning rates, early stopping, checkpoints, saved history and training cost) |
 | `predictions.py` | rebuild a model from a finished run (best checkpoint), predictions with an on-disk cache: `probs[set][model]` is an array (seeds, N, K) |
 | `evaluate.py` | macro-F1, mean ± sd over seeds, same-seed comparisons, stable errors, latency and training cost, calibration |
-| `gradcam.py` | Grad-CAM and Score-CAM via [pytorch-grad-cam](https://github.com/jacobgil/pytorch-grad-cam) (CNNs and ViT), and the share of the attention on the leaf |
+| `gradcam.py` | Grad-CAM via [pytorch-grad-cam](https://github.com/jacobgil/pytorch-grad-cam) (CNNs), attention rollout (ViT), and the share of the heat map on the leaf |
 | `plots.py` | plotting helpers |
 
 ## Declaration of AI usage
@@ -107,10 +107,10 @@ We used Claude Code (Anthropic) to refactor code, draft helper scripts, debug, a
 ## Acknowledgements
 
 - [PyTorch](https://pytorch.org/) and [torchvision](https://pytorch.org/vision/) (models, pre-trained ImageNet weights of ResNet18 and ViT-B/16, transforms)
-- [pytorch-grad-cam](https://github.com/jacobgil/pytorch-grad-cam) (Grad-CAM and Score-CAM)
+- [pytorch-grad-cam](https://github.com/jacobgil/pytorch-grad-cam) (Grad-CAM)
 - [scikit-learn](https://scikit-learn.org/), [SciPy](https://scipy.org/), [pandas](https://pandas.pydata.org/), [NumPy](https://numpy.org/), [Matplotlib](https://matplotlib.org/)
 - PlantVillage dataset: Hughes & Salathé (2015); Mohanty, Hughes & Salathé (2016), <https://github.com/spMohanty/PlantVillage-Dataset>
 - PlantDoc dataset: Singh et al. (2020), <https://github.com/pratikkayal/PlantDoc-Dataset>
 - Background bias in PlantVillage: Noyan (2022)
-- Squeeze-and-Excitation: Hu et al. (2018); Grad-CAM: Selvaraju et al. (2017); Score-CAM: Wang et al. (2020); ViT: Dosovitskiy et al. (2021)
+- Squeeze-and-Excitation: Hu et al. (2018); Grad-CAM: Selvaraju et al. (2017); attention rollout: Abnar & Zuidema (2020); ViT: Dosovitskiy et al. (2021)
 - ViT fine-tuning protocol and input ablation

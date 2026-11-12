@@ -1,6 +1,6 @@
 // COMP7015 group project report. Compile from the repository root:
 //   typst compile --root . report/report.typ report/report.pdf
-// Every number comes from the tables in outputs/ (collected in 06_discussion.ipynb).
+// Every number comes from the tables in outputs/, written by the two notebooks.
 
 #set document(title: "Tomato Leaf Disease Classification: Accurate on Clean Photos, Fragile Outside Them")
 #set page(paper: "a4", margin: (x: 1.7cm, top: 1.5cm, bottom: 1.6cm), numbering: "1")

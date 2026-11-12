@@ -18,7 +18,8 @@
       0.7,
       0.15
     ],
-    "num_workers": 2
+    "num_workers": 2,
+    "max_leaves_per_class": 0
   },
   "plantdoc": {
     "root": "./PlantDoc-Dataset",

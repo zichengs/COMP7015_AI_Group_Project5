@@ -31,7 +31,7 @@ Ruff baseline: `uvx ruff check plantdisease` already reports some errors in file
 ## Notebook pipeline
 
 Run the two notebooks in order:
-- `01_classification.ipynb`, Sections 1–15: data (1–6), CNN and ResNet18 (7–9), ViT (10), test evaluation, compute and Grad-CAM / Score-CAM (11–13), results summary tables (14) and discussion (15).
+- `01_classification.ipynb`, Sections 1–15: data (1–6), CNN and ResNet18 (7–9), ViT (10), test evaluation, compute, Grad-CAM (CNNs) and attention rollout (ViT) (11–13), results summary tables (14) and discussion (15).
 - `02_robustness.ipynb`, Sections 16–24: robustness (16–22), its results summary tables (23) and discussion (24: robustness, limitations, conclusion).
 
 Section numbers continue across both notebooks, and the code comments refer to them ("Section 20"). Refer to sections, not notebook numbers. Notebooks only call the package and plot; put logic in `plantdisease/`. `01_classification` runs in one kernel, so watch for variable names reused across sections (`images` is `data.images`, for example).
@@ -48,10 +48,10 @@ The notebooks pass work through files in `OUT_DIR` (default `./outputs`):
 - **Runs are identified by name.** `experiments.py` defines `RunConfig`, which is pydantic, frozen and rejects extra fields. It also defines the base recipes `BASE_CNN` / `BASE_RESNET` / `BASE_VIT`, each experiment as `base.variant(...)`, and derived runs named `"<experiment> + <suffix>"`. The suffixes are `INPUT_TRAINING` (Section 17) and `COUNTERMEASURES` (Section 20). `config_of(name)` resolves any name to its recipe. To add an experiment, add an entry to one of these dicts; don't build configs in notebooks.
 - **Training:** `train.py: run(name, data, seeds)` trains or loads one run per seed into `outputs/runs/<safe_name>__seed<seed>/`, saving `best.pt` and `history.json`. A run is reused only if both the saved config and the data fingerprint (`records.data_fingerprint`) match. So changing a recipe or the training photos retrains automatically, and changing anything else does not. Pre-trained models use two stages: `head_epochs` with only the head trainable, then fine-tuning chosen by `trainable_blocks` in `models.set_trainable`. Early stopping only counts epochs of the last stage.
 - **Predictions:** `predictions.py: predict_probs / predict_labels(names, {set_name: uint8 images})` returns `probs[set][model]` with shape `(seeds, N, K)`, or labels with shape `(seeds, N)`. The seed axis follows `TRAIN_CONFIG["seeds"]`. Results are cached as `runs/<run>/preds/<set>_<md5 of images>.npy`, and a retrain deletes that folder. `evaluate.py` works on this layout: `seed_scores`, `mean_sd`, `compare_seeds` (same-seed paired comparison), `stable_errors`.
-- **Explanations:** `gradcam.py` connects the pytorch-grad-cam library (`GradCAM`, `ScoreCAM`) to our models:
-  - It picks the target layer per architecture. For the ViT this is `encoder.layers[-1].ln_1`, with `vit_reshape` turning the 196 patch tokens into a 14x14 grid.
-  - It holds the leaf-share analysis (`leaf_attention`, `leaf_share_table`). Per-image results are cached in `runs/<run>/preds/leafshare-lib_*.npy`.
-  - If you change how the maps are computed, change that cache prefix too, or stale cached values will be reused.
+- **Explanations:** `gradcam.py` makes the heat maps: Grad-CAM from the pytorch-grad-cam library for the CNNs, and its own attention rollout for the ViT (`attention_rollout`, hooks that ask torchvision's attention layers for their weights):
+  - `TARGET_LAYER` picks the Grad-CAM layer of each CNN. The ViT rollout puts the class token's row over the 196 patch tokens on a 14x14 grid.
+  - It holds the leaf-share analysis (`leaf_attention`, `leaf_share_table`). Per-image results are cached in `runs/<run>/preds/<prefix>_*.npy`, with the prefix from `LEAF_SHARE_PREFIX` (`leafshare-lib` for the CNNs, `leafshare-rollout` for the ViT).
+  - If you change how the maps of an architecture are computed, change its cache prefix too, or stale cached values will be reused.
 - **Backgrounds** (`data/backgrounds.py`): leaf masks come from PlantVillage's segmented photos. They are used for the Section 16 test variants, the same-leaf / other-background tests (Section 18) and `BackgroundSwapDataset` (Section 20). `train.train_dataset` switches to that dataset when `cfg.background_swap > 0`.
 - **Determinism:** `device.py` sets `CUBLAS_WORKSPACE_CONFIG` before importing torch and enables deterministic algorithms. It picks CUDA (with AMP), then MPS, then CPU. Use `set_seed` and `synchronize` (needed for correct timings) from there.
 

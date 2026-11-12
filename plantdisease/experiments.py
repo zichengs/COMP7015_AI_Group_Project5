@@ -69,6 +69,38 @@ class RunConfig(BaseModel):
         return {k: v for k, v in self.model_dump().items() if v != base_values[k]}
 
 
+# Readable name of every RunConfig setting, for the recipe tables of Sections 7 and 10
+SETTING_NAMES = {
+    "arch": "architecture",
+    "lr": "learning rate (ViT: unfrozen backbone)",
+    "batch_size": "batch size",
+    "dropout": "dropout before the classifier",
+    "augment": "training augmentation",
+    "class_weights": "class-weighted loss",
+    "scheduler": "learning-rate schedule",
+    "weight_decay": "weight decay (AdamW)",
+    "epochs": "maximum epochs (incl. head-only epochs)",
+    "patience": "early-stopping patience (epochs)",
+    "head_epochs": "head-only epochs",
+    "head_lr": "head learning rate, head-only epochs",
+    "finetune_head_lr": "head learning rate after the head-only epochs",
+    "trainable_blocks": "ViT blocks trained after the head-only epochs (None = all)",
+    "input": "input version",
+    "background_swap": "share of photos with a random background",
+    "class_matched_background": "background from the same class (control)",
+}
+assert set(SETTING_NAMES) == set(RunConfig.model_fields), "name every RunConfig setting"
+
+
+def recipe_table(recipes: dict[str, RunConfig]) -> pd.DataFrame:
+    # All settings of some recipes (one column each), labelled by full name and variable name.
+    table = pd.DataFrame({name: cfg.model_dump() for name, cfg in recipes.items()})
+    table.index = pd.MultiIndex.from_tuples(
+        [(SETTING_NAMES[k], k) for k in table.index], names=["setting", "variable"]
+    )
+    return table
+
+
 # ----------------------------------------------------------------------------
 # Custom CNN and ResNet18 (Sections 7-9): one base recipe each, every experiment changes one setting
 # ----------------------------------------------------------------------------

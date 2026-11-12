@@ -5,7 +5,7 @@ Usage (from the repository root, in the environment that will run the notebooks)
     python scripts/smoke_test.py            # or: uv run python scripts/smoke_test.py
     python scripts/smoke_test.py --keep     # keep outputs_smoke/ and cache_smoke/ for inspection
 
-Every cell runs, including training, Grad-CAM / Score-CAM, the robustness tests and the PlantDoc
+Every cell runs, including training, Grad-CAM / attention rollout, the robustness tests and the PlantDoc
 download. Settings are tiny: MAX_LEAVES leaves per class, one seed, minimal epochs. Results go to
 outputs_smoke/ and cache_smoke/; the real outputs/ and cache/ are never touched, and the notebooks
 in the repository are not modified (executed copies are saved to outputs_smoke/executed/).
