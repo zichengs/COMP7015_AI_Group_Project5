@@ -25,7 +25,7 @@ def macro_f1(
     y_true: npt.ArrayLike, y_pred: npt.ArrayLike, labels: npt.ArrayLike | None = None
 ):
     # labels=None: the classes that occur or are predicted.
-    # labels given (field photos, Section 21): average over these classes only; a prediction into
+    # labels given (field photos, Section 20): average over these classes only; a prediction into
     # any other class is still an error.
     return f1_score(y_true, y_pred, labels=labels, average="macro", zero_division=0)
 
@@ -105,7 +105,7 @@ def field_table(
     y_test: np.ndarray,
     y_field: np.ndarray,
 ) -> tuple[pd.DataFrame, dict[str, np.ndarray], dict[str, np.ndarray]]:
-    # Section 21: macro-F1 over the classes that occur in the field photos, on the clean test
+    # Section 20: macro-F1 over the classes that occur in the field photos, on the clean test
     # photos of these classes and on the field photos (mean ± sd over the seeds).
     # Returns (table, seed scores on the clean test, seed scores on the field photos).
     labels = np.unique(y_field)
@@ -174,7 +174,7 @@ def inference_cost(name: str) -> dict[str, float]:
 
 
 # ----------------------------------------------------------------------------
-# Section 22: confidence and abstention
+# Section 21: confidence and abstention
 # ----------------------------------------------------------------------------
 def risk_coverage(
     probs: np.ndarray, y: np.ndarray, coverages: np.ndarray

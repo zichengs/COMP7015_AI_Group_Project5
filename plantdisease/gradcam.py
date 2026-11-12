@@ -1,4 +1,4 @@
-"""Heat maps of where the models look (Sections 13, 19 and 20.4): Grad-CAM for the CNNs, attention
+"""Heat maps of where the models look (Sections 13, 18 and 19.4): Grad-CAM for the CNNs, attention
 rollout for the ViT, and the share of the map that lies on the leaf.
 """
 

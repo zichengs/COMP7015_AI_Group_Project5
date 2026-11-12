@@ -44,7 +44,7 @@ class RunConfig(BaseModel):
     # head only, n = the last n ViT encoder blocks, the final LayerNorm and the classifier head
     trainable_blocks: int | None = None
 
-    # Derived runs (Sections 17 and 20).
+    # Derived runs (Sections 16 and 19).
     input: Literal["color", "grayscale", "segmented"] = "color"
     # share of the training photos that get a random background
     background_swap: float = 0.0
@@ -197,8 +197,8 @@ def changes_table(experiments: dict[str, RunConfig], base: RunConfig) -> pd.Data
 
 # ----------------------------------------------------------------------------
 # Derived runs: '<selected model> + <suffix>' = the selected recipe with a change
-#   Section 17: the ViT retrained on another input version (trained and validated on that version)
-#   Section 20: CNN / ResNet18 / ViT retrained with random backgrounds (countermeasure) or
+#   Section 16: the ViT retrained on another input version (trained and validated on that version)
+#   Section 19: CNN / ResNet18 / ViT retrained with random backgrounds (countermeasure) or
 #               class-matched backgrounds (control)
 # ----------------------------------------------------------------------------
 INPUT_TRAINING = {

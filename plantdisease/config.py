@@ -37,7 +37,7 @@ DATA_CONFIG: dict[str, Any] = {
     "max_leaves_per_class": int(env("MAX_LEAVES", 0)),
 }
 
-# PlantDoc field photos (Section 21.1)
+# PlantDoc field photos (Section 20.1)
 PLANTDOC_CONFIG: dict[str, Any] = {
     # where the dataset is downloaded
     "root": env("FIELD_ROOT", "./PlantDoc-Dataset"),
@@ -57,7 +57,7 @@ TRAIN_CONFIG: dict[str, Any] = {
     "seeds": [int(s) for s in env("SEEDS", "62,63,64").split(",")],
     # the single seed of the tuning runs and ablations (Section 9)
     "tuning_seed": 62,
-    # background swap of Section 20: share of the training photos whose background is replaced
+    # background swap of Section 19: share of the training photos whose background is replaced
     "swap_prob": 0.5,
 }
 

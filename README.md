@@ -14,7 +14,7 @@ Without uv: `pip install torch torchvision torchinfo grad-cam pydantic scikit-le
 
 The code runs on an NVIDIA GPU (CUDA, with mixed precision), on Apple silicon (MPS) and on the CPU; the device is chosen automatically.
 
-The dataset is downloaded in Section 2 of `01_classification.ipynb`: `git clone --depth 1` of the whole PlantVillage repository (about 2 GB, latest files only; git is required). If `PlantVillage-Dataset/raw/color` already exists, the download is skipped. Section 21.1 also downloads the matching folders of [PlantDoc](https://github.com/pratikkayal/PlantDoc-Dataset). It is skipped if the download fails.
+The dataset is downloaded in Section 2 of `01_classification.ipynb`: `git clone --depth 1` of the whole PlantVillage repository (about 2 GB, latest files only; git is required). If `PlantVillage-Dataset/raw/color` already exists, the download is skipped. Section 20.1 also downloads the matching folders of [PlantDoc](https://github.com/pratikkayal/PlantDoc-Dataset). It is skipped if the download fails.
 
 ## Running
 
@@ -22,8 +22,8 @@ Run the two notebooks in order, from the repository root:
 
 | Notebook | Sections | Content |
 |---|---|---|
-| `01_classification.ipynb` | 1–15 | **1–6:** configuration, download, leaf grouping, image cache, leaf-group split and leakage audit, augmentation. **7–9:** custom CNN and ResNet18, training engine, tuning and ablations, selection with all seeds. **10:** ViT-B/16 fine-tuning strategies (head only, last two blocks, full), augmentation ablation, selection. **11–13:** test results of the final models over 3 seeds, compute trade-offs (inference and training cost), error analysis, Grad-CAM (CNNs) and attention rollout (ViT). **14–15:** results summary and discussion |
-| `02_robustness.ipynb` | 16–24 | background-only baseline (what four image corners reveal); robustness to background removal, grayscale, lighting, blur and noise; ViT retrained on grayscale and background-removed photos; the same leaf on other backgrounds; leaf attention; countermeasure (random backgrounds); PlantDoc field photos; confidence and abstention (16–22); results summary (23); discussion, limitations and conclusion (24) |
+| `01_classification.ipynb` | 1–14 | **1–6:** configuration, download, leaf grouping, image cache, leaf-group split and leakage audit, augmentation. **7–9:** custom CNN and ResNet18, training engine, tuning and ablations, selection with all seeds. **10:** ViT-B/16 fine-tuning strategies (head only, last two blocks, full), augmentation ablation, selection. **11–13:** test results of the final models over 3 seeds, compute trade-offs (inference and training cost), error analysis, Grad-CAM (CNNs) and attention rollout (ViT). **14:** short discussion |
+| `02_robustness.ipynb` | 15–23 | background-only baseline (what four image corners reveal); robustness to background removal, grayscale, lighting, blur and noise; ViT retrained on grayscale and background-removed photos; the same leaf on other backgrounds; leaf attention; countermeasure (random backgrounds); PlantDoc field photos; confidence and abstention (15–21); results summary (22); discussion, limitations and conclusion (23) |
 
 Every training run is saved under `outputs/runs/<run>__seed<seed>/`: the best checkpoint, the history (including the training time and whether it stopped early) and the configuration. Re-running a notebook loads finished runs instead of retraining them, and it reuses cached predictions. So an interrupted run can simply be resumed, and `02_robustness.ipynb` can be re-run on its own once `01_classification.ipynb` has run. Sections 9.3 and 10.3 write the selected models to `outputs/final_models.json`.
 
@@ -68,7 +68,7 @@ The model recipes (learning rate, batch size, freezing, epochs, ...) are defined
 | `DATA_ROOT` | `./PlantVillage-Dataset` | PlantVillage checkout |
 | `CACHE_DIR` | `./cache` | decoded and resized images (uint8 tensors) |
 | `OUT_DIR` | `./outputs` | runs, tables (`.csv`) and figures (`.png`) |
-| `FIELD_ROOT` | `./PlantDoc-Dataset` | PlantDoc checkout (Section 21.1) |
+| `FIELD_ROOT` | `./PlantDoc-Dataset` | PlantDoc checkout (Section 20.1) |
 | `SEEDS` | `62,63,64` | training seeds |
 | `EPOCHS_CNN`, `EPOCHS_RESNET`, `EPOCHS_VIT` | `50`, `20`, `20` | maximum training epochs |
 | `PATIENCE_CNN`, `PATIENCE_RESNET`, `PATIENCE_VIT` | `10`, `5`, `5` | early stopping: epochs without a better validation macro-F1 (0 = off) |
@@ -93,7 +93,7 @@ The notebooks show the steps and the results. The shared code is in the `plantdi
 | `data/dataset.py` | the `Data` object and `prepare()`, which runs the whole data protocol in one call (used by both notebooks) |
 | `data/backgrounds.py` | test variants, same-leaf background tests, background-swap dataset |
 | `models.py` | custom CNN with SE attention, ResNet18, ViT-B/16, freezing for the fine-tuning strategies |
-| `experiments.py` | what is trained: `RunConfig` (the settings of one run, their types and allowed values), the recipes of all experiments, the derived runs of Sections 17 and 20, the selected models |
+| `experiments.py` | what is trained: `RunConfig` (the settings of one run, their types and allowed values), the recipes of all experiments, the derived runs of Sections 16 and 19, the selected models |
 | `train.py` | training engine: `run(name, data)` trains a run with every seed (AdamW, schedules, two-stage fine-tuning with separate head/backbone learning rates, early stopping, checkpoints, saved history and training cost) |
 | `predictions.py` | rebuild a model from a finished run (best checkpoint), predictions with an on-disk cache: `probs[set][model]` is an array (seeds, N, K) |
 | `evaluate.py` | macro-F1, mean ± sd over seeds, same-seed comparisons, stable errors, latency and training cost, calibration |
