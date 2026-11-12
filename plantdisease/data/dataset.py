@@ -47,7 +47,7 @@ class Data:
     @cached_property
     def swap_masks(self) -> tuple[torch.Tensor, np.ndarray]:
         # Leaf masks of all photos (aligned with self.images) and which of them can be used for the
-        # background swap of Section 19 -> (masks, usable).
+        # background swap -> (masks, usable).
         seg_all, exists = self.segmented
         print(f"{(~exists).sum()} of {len(exists)} photos have no segmented version")
         # (N, H, W) bool; photos without a segmented version get an empty mask
@@ -72,7 +72,7 @@ class Data:
 
 
 def prepare() -> Data:
-    # The deterministic data protocol (Sections 3-5): the photos with an official leaf id, their
+    # The deterministic data protocol: the photos with an official leaf id, their
     # cached images and the leaf-group split.
     all_df = load_records()
     df = all_df[all_df["source"] == "leaf map"]

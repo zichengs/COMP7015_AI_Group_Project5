@@ -37,7 +37,7 @@ DATA_CONFIG: dict[str, Any] = {
     "max_leaves_per_class": int(env("MAX_LEAVES", 0)),
 }
 
-# PlantDoc field photos (Section 20.1)
+# PlantDoc field photos
 PLANTDOC_CONFIG: dict[str, Any] = {
     # where the dataset is downloaded
     "root": env("FIELD_ROOT", "./PlantDoc-Dataset"),
@@ -55,9 +55,9 @@ PLANTDOC_CONFIG: dict[str, Any] = {
 TRAIN_CONFIG: dict[str, Any] = {
     # training seeds of the final models
     "seeds": [int(s) for s in env("SEEDS", "62,63,64").split(",")],
-    # the single seed of the tuning runs and ablations (Section 9)
+    # the single seed of the tuning runs and ablations
     "tuning_seed": 62,
-    # background swap of Section 19: share of the training photos whose background is replaced
+    # background swap: share of the training photos whose background is replaced
     "swap_prob": 0.5,
 }
 
@@ -69,7 +69,7 @@ for d in [PATHS_CONFIG["cache_dir"], PATHS_CONFIG["out_dir"], PATHS_CONFIG["runs
 
 
 def save_config() -> None:
-    # Save all settings to OUT_DIR/config.json, one section per group (called in Section 1).
+    # Save all settings to OUT_DIR/config.json, one section per group.
     settings = {
         "paths": PATHS_CONFIG,
         "data": DATA_CONFIG,

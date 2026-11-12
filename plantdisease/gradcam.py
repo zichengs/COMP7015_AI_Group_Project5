@@ -1,5 +1,5 @@
-"""Heat maps of where the models look (Sections 13, 18 and 19.4): Grad-CAM for the CNNs, gradient-
-weighted attention for the ViT, and the share of the map that lies on the leaf.
+"""Heat maps of where the models look: Grad-CAM for the CNNs, gradient-weighted attention for the
+ViT, and the share of the map that lies on the leaf.
 """
 
 from collections.abc import Iterable, Sequence

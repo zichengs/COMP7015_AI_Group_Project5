@@ -12,7 +12,7 @@ from .leafmap import IMAGE_SUFFIXES, get_image_key, get_leaf_id
 
 
 # ----------------------------------------------------------------------------
-# Section 3: leaf grouping
+# Leaf grouping
 # ----------------------------------------------------------------------------
 def load_records() -> pd.DataFrame:
     # All photos of the four classes, one row per photo. `source` says where the leaf id comes
@@ -47,7 +47,7 @@ def load_records() -> pd.DataFrame:
 
 
 # ----------------------------------------------------------------------------
-# Section 5: leaf-group split and leakage audit
+# Leaf-group split and leakage audit
 # ----------------------------------------------------------------------------
 def make_split(df: pd.DataFrame) -> tuple[np.ndarray, ...]:
     # Split the official leaf ids of every class 70/15/15 (train / val / test) and audit the result.

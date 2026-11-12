@@ -44,7 +44,7 @@ class RunConfig(BaseModel):
     # head only, n = the last n ViT encoder blocks, the final LayerNorm and the classifier head
     trainable_blocks: int | None = None
 
-    # Derived runs (Sections 16 and 19).
+    # Derived runs (input version, background swap).
     input: Literal["color", "grayscale", "segmented"] = "color"
     # share of the training photos that get a random background
     background_swap: float = 0.0
@@ -69,7 +69,7 @@ class RunConfig(BaseModel):
         return {k: v for k, v in self.model_dump().items() if v != base_values[k]}
 
 
-# Readable name of every RunConfig setting, for the recipe tables of Sections 7 and 10
+# Readable name of every RunConfig setting, for the recipe tables
 SETTING_NAMES = {
     "arch": "architecture",
     "lr": "learning rate (ViT: unfrozen backbone)",
@@ -102,7 +102,7 @@ def recipe_table(recipes: dict[str, RunConfig]) -> pd.DataFrame:
 
 
 # ----------------------------------------------------------------------------
-# Custom CNN and ResNet18 (Sections 7-9): one base recipe each, every experiment changes one setting
+# Custom CNN and ResNet18: one base recipe each, every experiment changes one setting
 # ----------------------------------------------------------------------------
 # Custom CNN (with SE attention), trained from scratch
 BASE_CNN = RunConfig(
@@ -157,7 +157,7 @@ RESNET_EXPERIMENTS = {
 }
 
 # ----------------------------------------------------------------------------
-# ViT-B/16 (Section 10): fine-tuning strategies
+# ViT-B/16: fine-tuning strategies
 # ----------------------------------------------------------------------------
 BASE_VIT = RunConfig(
     arch="vit_b_16",
@@ -197,9 +197,9 @@ def changes_table(experiments: dict[str, RunConfig], base: RunConfig) -> pd.Data
 
 # ----------------------------------------------------------------------------
 # Derived runs: '<selected model> + <suffix>' = the selected recipe with a change
-#   Section 16: the ViT retrained on another input version (trained and validated on that version)
-#   Section 19: CNN / ResNet18 / ViT retrained with random backgrounds (countermeasure) or
-#               class-matched backgrounds (control)
+#   INPUT_TRAINING: the ViT retrained on another input version (trained and validated on it)
+#   COUNTERMEASURES: CNN / ResNet18 / ViT retrained with random backgrounds (countermeasure)
+#                    or class-matched backgrounds (control)
 # ----------------------------------------------------------------------------
 INPUT_TRAINING = {
     "grayscale training": {"input": "grayscale"},
@@ -236,7 +236,7 @@ def config_of(name: str) -> RunConfig:
 
 
 # ----------------------------------------------------------------------------
-# Selected models (OUT_DIR/final_models.json): CNN and ResNet18 in Section 9.3, ViT in Section 10.3
+# Selected models (OUT_DIR/final_models.json), chosen on the validation set
 # ----------------------------------------------------------------------------
 FINAL_MODELS_FILE = out_path("final_models.json")
 
@@ -260,6 +260,6 @@ def load_final_models() -> tuple[str, str, str]:
     selected = _read_selected()
     missing = {"cnn", "resnet18", "vit_b_16"} - set(selected)
     assert not missing, (
-        f"run 01_classification.ipynb up to Section 10 first (missing: {sorted(missing)})"
+        f"run 01_classification.ipynb up to the ViT selection first (missing: {sorted(missing)})"
     )
     return selected["cnn"], selected["resnet18"], selected["vit_b_16"]

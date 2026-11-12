@@ -78,7 +78,7 @@ def is_head(cfg: RunConfig, name: str) -> bool:
 
 def set_trainable(model: nn.Module, cfg: RunConfig, stage: str) -> None:
     # Stage 'head': only the new classifier head is trained. Stage 'finetune': cfg.trainable_blocks
-    # decides (fine-tuning strategies of Section 10):
+    # decides (the ViT fine-tuning strategies):
     #   None  every parameter, including patch embedding, position embedding and class token
     #   0     the classifier head only (backbone frozen throughout)
     #   n     the last n ViT encoder blocks, the final LayerNorm and the classifier head
