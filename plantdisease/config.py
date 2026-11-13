@@ -32,7 +32,10 @@ DATA_CONFIG: dict[str, Any] = {
     # train, val (test = rest), applied to the official leaf ids of every class
     "split_fractions": (0.70, 0.15),
     # data loader workers
-    "num_workers": int(env("NUM_WORKERS", 2)),
+    "num_workers": int(env("NUM_WORKERS", 1)),
+    # Avoid CUDA host-memory mapping failures on Windows; opt in with PIN_MEMORY=1.
+    "pin_memory": env("PIN_MEMORY", "0" if os.name == "nt" else "1").lower()
+    in {"1", "true", "yes", "on"},
     # smoke tests only (scripts/smoke_test.py): keep the first N leaves of every class; 0 = all
     "max_leaves_per_class": int(env("MAX_LEAVES", 0)),
 }

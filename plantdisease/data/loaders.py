@@ -64,7 +64,7 @@ def make_loader(
         shuffle=seed is not None,
         num_workers=DATA_CONFIG["num_workers"],
         generator=torch.Generator().manual_seed(seed) if seed is not None else None,
-        pin_memory=device.type == "cuda",
+        pin_memory=device.type == "cuda" and DATA_CONFIG["pin_memory"],
         persistent_workers=DATA_CONFIG["num_workers"] > 0,
     )
 
