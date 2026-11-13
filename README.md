@@ -48,7 +48,7 @@ The notebooks call the `plantdisease/` package:
 
 ## Declaration of AI usage
 
-We used Claude Code (Anthropic) to refactor code, draft helper scripts, debug, and edit the wording of this README and the report (`CLAUDE.md` holds its instructions). The research questions, experimental design, experiments and conclusions are our own. All reported numbers come from our own training runs. Library code is credited below.
+We used Claude Code (Anthropic) to refactor code, draft helper scripts, debug, and edit the wording of this README and the report. The research questions, experimental design, experiments and conclusions are our own. All reported numbers come from our own training runs. Library code is credited below.
 
 ## Acknowledgements
 
